@@ -1,0 +1,11 @@
+[theme]
+base = "light"
+primaryColor = "#2F6FE0"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F4F6FA"
+textColor = "#1A2330"
+font = "sans serif"
+
+[server]
+# 업로드 파일 최대 용량(MB). 발행내역 엑셀 업로드 등을 넉넉히.
+maxUploadSize = 50
