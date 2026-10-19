@@ -1,0 +1,46 @@
+name: Update DART DB   # 매일 새 공시를 dart.db 에 자동 반영
+
+on:
+  schedule:
+    # UTC 기준. 22:00 UTC = 한국시간(KST) 다음날 07:00 → 매일 아침 07시경 실행
+    - cron: "0 22 * * *"
+  workflow_dispatch: {}      # 깃허브에서 '수동 실행' 버튼도 가능
+
+permissions:
+  contents: write            # 갱신된 dart.db 를 저장소에 되돌려 커밋/푸시하기 위해 필요
+
+concurrency:
+  group: update-db
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 가져오기
+        uses: actions/checkout@v4
+
+      - name: 파이썬 설치
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 라이브러리 설치
+        run: pip install requests
+
+      - name: dart.db 증분 갱신
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}   # 깃허브 Secrets 에서 읽음(코드에 키 없음)
+        run: python update_db.py
+
+      - name: 변경 있으면 커밋·푸시
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add dart.db
+          if git diff --cached --quiet; then
+            echo "변경 없음 — 커밋 생략"
+          else
+            git commit -m "auto: update dart.db ($(date -u +%Y-%m-%d))"
+            git push
+          fi
