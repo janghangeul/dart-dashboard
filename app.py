@@ -83,11 +83,45 @@ st.markdown(
       box-shadow:0 1px 3px rgba(47,111,224,.25);transition:.15s;
     }
     .stButton button:hover{background:var(--brand-ink);box-shadow:0 4px 12px rgba(47,111,224,.3);}
+    /* 버튼 글씨가 버튼 색을 따라가도록(파란 버튼=흰 글씨). 중첩 마크다운 p의 검은색 방지 */
+    .stButton button p, .stButton button span, .stButton button div{color:inherit !important;}
 
-    /* 입력창 */
-    [data-baseweb="input"], [data-baseweb="select"]>div{border-radius:9px;font-size:15px;}
+    /* 체크박스·라디오 '선택칸' 테두리를 파랗게(잘 보이게) */
+    [data-baseweb="checkbox"] > span:first-child,
+    [data-baseweb="checkbox"] > div:first-child,
+    [data-testid="stCheckbox"] label > span:first-child,
+    [data-baseweb="radio"] > div:first-child,
+    [data-baseweb="radio"] > span:first-child,
+    [data-testid="stRadio"] [role="radio"] > div:first-child{
+      border-color:var(--brand) !important;border-width:2px !important;}
+
+    /* 입력창·드롭다운 — '누를 수 있는 칸'으로 또렷하게 (테두리·배경·포커스링) */
+    [data-baseweb="input"],
+    [data-baseweb="select"] > div,
+    [data-baseweb="textarea"]{
+      border:1.6px solid #6F9BE8 !important;
+      border-radius:9px !important;
+      background:#FFFFFF !important;
+      font-size:15px;
+      box-shadow:0 1px 2px rgba(20,36,59,.05);
+      transition:border-color .15s, box-shadow .15s;
+    }
+    [data-baseweb="input"]:hover,
+    [data-baseweb="select"] > div:hover,
+    [data-baseweb="textarea"]:hover{border-color:var(--brand) !important;}
+    [data-baseweb="input"]:focus-within,
+    [data-baseweb="select"] > div:focus-within,
+    [data-baseweb="textarea"]:focus-within{
+      border-color:var(--brand) !important;
+      box-shadow:0 0 0 3px rgba(47,111,224,.18) !important;
+    }
     [data-testid="stSidebar"] [data-baseweb="input"] input,
     [data-baseweb="input"] input{color:var(--ink);}
+    /* 셀렉트박스: 클릭 가능 + 화살표(▾) 또렷하게 */
+    [data-baseweb="select"]{cursor:pointer;}
+    [data-baseweb="select"] svg{color:var(--brand) !important;opacity:1 !important;width:22px;height:22px;}
+    /* 위젯 라벨 위에 작은 안내가 잘 보이도록 */
+    [data-testid="stWidgetLabel"] p, label p{margin-bottom:4px;}
 
     /* 지표 카드(st.metric) — 흰 카드로 */
     [data-testid="stMetric"]{
@@ -139,6 +173,30 @@ st.markdown(
     /* 라디오 동그라미 숨김 */
     [data-testid="stSidebar"] [role="radiogroup"] label > div:first-child{display:none;}
 
+    /* ---------- 사이드바 메뉴(button 방식) ---------- */
+    [data-testid="stSidebar"] .nav-sec{
+      margin:.65rem 0 .1rem;font-weight:700;font-size:13px;
+      color:var(--brand);letter-spacing:.3px;}
+    /* 메뉴(nav) 버튼만 '메뉴 항목' 스타일. (st-key-nav_btn 클래스로 한정 → '적용' 등 일반 버튼 제외) */
+    [data-testid="stSidebar"] [class*="st-key-nav_btn"] button{
+      width:100%;justify-content:flex-start;text-align:left;
+      background:transparent;color:#45505F;border:0;box-shadow:none;
+      font-weight:500;font-size:15.5px;padding:10px 14px;margin:2px 0;border-radius:10px;}
+    [data-testid="stSidebar"] [class*="st-key-nav_btn"] button:hover{
+      background:var(--sky-hover);color:#45505F;box-shadow:none;}
+    [data-testid="stSidebar"] [class*="st-key-nav_btn"] button p{
+      font-size:15.5px !important;font-weight:inherit;color:inherit !important;margin:0;}
+    /* 선택된 메뉴(primary): 연한 하늘색 + 파란 글씨 + 왼쪽 악센트 */
+    [data-testid="stSidebar"] [class*="st-key-nav_btn"] button[kind="primary"],
+    [data-testid="stSidebar"] [class*="st-key-nav_btn"] button[data-testid="baseButton-primary"],
+    [data-testid="stSidebar"] [class*="st-key-nav_btn"] button[data-testid="stBaseButton-primary"]{
+      background:var(--sky);color:var(--brand-ink);font-weight:700;
+      box-shadow:inset 3px 0 0 var(--brand);}
+    [data-testid="stSidebar"] [class*="st-key-nav_btn"] button[kind="primary"]:hover,
+    [data-testid="stSidebar"] [class*="st-key-nav_btn"] button[data-testid="baseButton-primary"]:hover,
+    [data-testid="stSidebar"] [class*="st-key-nav_btn"] button[data-testid="stBaseButton-primary"]:hover{
+      background:var(--sky);color:var(--brand-ink);}
+
     /* 라디오(본문 가로형: 유형 선택 등)도 또렷하게 */
     [role="radiogroup"] label p{color:#2A3545 !important;}
     </style>
@@ -164,12 +222,21 @@ try:
 except Exception:
     default_key = ""
 
-api_key = st.sidebar.text_input(
-    "DART 인증키 (40자리)",
+st.sidebar.markdown("**DART 인증키 (40자리)**")
+_kc1, _kc2 = st.sidebar.columns([3, 1])
+api_key = _kc1.text_input(
+    "DART 인증키",
     value=default_key,
     type="password",
-    help="opendart.fss.or.kr 에서 발급받은 키를 붙여넣으세요.",
+    label_visibility="collapsed",
+    placeholder="키 입력 후 '적용' →",
+    key="dart_key_input",
+    help="opendart.fss.or.kr 에서 발급받은 키를 붙여넣고 '적용'을 누르세요.",
 )
+_kc2.button("적용", key="dart_key_apply", use_container_width=True,
+            help="입력한 키를 반영합니다. (Enter 를 눌러도 됩니다)")
+if not api_key:
+    st.sidebar.caption("👆 DART 인증키를 넣고 **적용**(또는 Enter)을 누르면 대시보드가 열립니다.")
 
 # 공모 상세 AI 분석용 Anthropic 키 (선택). 없으면 공모 AI 분석만 비활성.
 default_anthropic = ""
@@ -1656,27 +1723,47 @@ def mezz_val_ai(anthropic_key, model, ctx):
     except ImportError:
         raise DartError("anthropic 라이브러리가 없습니다. 'python -m pip install anthropic' 후 다시 시도하세요.")
     prompt = f"""당신은 메자닌(CB/BW) 투자 심사역입니다. 아래 한 상장사의 주가·전환가 정보를 바탕으로,
-향후 주가 전망과 '전환(행사) 타이밍'에 대한 의견을 제시하세요. 제공된 숫자만 근거로 하되, 일반적 밸류에이션 관점을 적용하세요.
+적정 주가와 '전환(행사) 타이밍'에 대한 의견을 제시하세요. 제공된 숫자만 근거로 하되, 일반적 밸류에이션 관점을 적용하세요.
 
 [데이터]
 {ctx}
 
-다음을 한국어로 간결히:
-1) 피어그룹 관점(동종업계 통상 PER/PBR 대비)에서 본 현재 주가 수준 — 고평가/적정/저평가
-2) 절대가치 관점(실적·성장성 대비)에서의 적정주가 레인지(대략)
-3) 전환가 대비 현재가(패리티)와 상승 여력을 감안할 때, 지금 전환이 유리한지 / 더 기다리는 게 유리한지
-4) 한 줄 결론
-마지막에 '실시간 시세·시장상황에 따라 달라질 수 있는 참고용 추정'임을 명시."""
+반드시 아래 JSON 형식 '하나만' 출력하세요(코드블록·설명 없이 순수 JSON). 각 값은 한국어 서술로 2~4문장:
+{{
+  "peer": "피어그룹 관점(동종업계 통상 PER/PBR 대비)에서 본 현재 주가 수준 — 고평가/적정/저평가와 근거",
+  "absolute": "절대가치 관점(실적·성장성 대비)에서의 적정주가 레인지(대략)와 근거",
+  "timing": "전환가 대비 현재가(패리티)와 상승 여력을 감안할 때, 지금 전환이 유리한지 / 더 기다리는 게 유리한지에 대한 판단과 근거(한 줄 결론 포함)"
+}}"""
     try:
         msg = anthropic.Anthropic(api_key=anthropic_key).messages.create(
             model=model, max_tokens=1300, messages=[{"role": "user", "content": prompt}])
     except Exception as e:
         raise DartError(f"AI 호출 실패: {e}")
-    return "".join(getattr(b, "text", "") for b in msg.content)
+    raw = "".join(getattr(b, "text", "") for b in msg.content).strip()
+    # 순수 JSON 파싱 (코드블록/잡텍스트가 섞여도 중괄호 구간만 추출)
+    import json as _json
+    txt = raw
+    if "```" in txt:
+        txt = txt.split("```")[1].replace("json", "", 1) if txt.count("```") >= 2 else txt
+    i, j = txt.find("{"), txt.rfind("}")
+    parsed = None
+    if i != -1 and j != -1 and j > i:
+        try:
+            parsed = _json.loads(txt[i:j + 1])
+        except Exception:
+            parsed = None
+    if not isinstance(parsed, dict):
+        # 파싱 실패 시: 전체 텍스트를 '피어그룹' 칸에 넣어 최소한 보이게
+        return {"peer": raw, "absolute": "", "timing": ""}
+    return {
+        "peer": str(parsed.get("peer", "") or ""),
+        "absolute": str(parsed.get("absolute", "") or ""),
+        "timing": str(parsed.get("timing", "") or ""),
+    }
 
 
 def tab_mezz_val(corp_df):
-    st.header("💹 Ⅳ. 밸류에이션 · 전환가/주가 여력 (메자닌)")
+    st.header("💹 Ⅳ. 밸류에이션")
     st.caption("증발공 규정 기준 **예상 전환가** = max( 3개월·1개월 가중평균주가, 전일 종가 )를 산정하고, 현재가 대비 "
                "전환 패리티·상승 여력을 봅니다. 두 번째 기준일(예: 한 달 뒤)로 예상 리픽싱가도 추정해 "
                "**언제 전환·발행하는 게 유리한지** 판단합니다. (가중평균은 일별 종가×거래량 기준 추정치 · 미래 기준일은 현재가로 가정)")
@@ -1734,76 +1821,82 @@ def tab_mezz_val(corp_df):
     st.subheader(f"{mv['name']} ({mv['ticker']}) · 현재가 {mv['cur']:,.0f}원")
 
     def _render(label, base, r):
-        st.markdown(f"**{label} · 기준일 {base}**")
+        st.markdown(f"**기준일 {base}**")
         if not r:
             st.caption("해당 기준일 이전 주가가 부족해 산정 불가.")
             return
         conv = r["예상전환가"]
         parity = (mv["cur"] / conv * 100) if conv else None
-        a, b, c, d = st.columns(4)
+        a, b, c, d, e = st.columns(5)
         a.metric("3개월 가중평균", f"{r['3개월가중평균']:,.0f}원" if r["3개월가중평균"] else "-")
         b.metric("1개월 가중평균", f"{r['1개월가중평균']:,.0f}원" if r["1개월가중평균"] else "-")
         c.metric("전일 종가", f"{r['전일종가']:,.0f}원" if r["전일종가"] else "-")
         d.metric("예상 전환가", f"{conv:,.0f}원" if conv else "-",
                  help="max(3개월·1개월 가중평균, 전일 종가)")
+        e.metric("패리티(%)", f"{parity:.1f}%" if parity is not None else "-",
+                 help="현재가 ÷ 예상 전환가 × 100. 100% 이상이면 전환 유리(In-the-money).")
         if parity is not None:
             state = "전환 유리(In-the-money)" if parity >= 100 else "전환 불리(Out-of-the-money)"
-            st.caption(f"전환 패리티(현재가/전환가): **{parity:.1f}%** → {state}  ·  "
-                       f"전환가 대비 현재가 {'+' if mv['cur']>=conv else ''}{(mv['cur']-conv)/conv*100:.1f}%")
+            st.caption(f"→ {state}  ·  전환가 대비 현재가 "
+                       f"{'+' if mv['cur']>=conv else ''}{(mv['cur']-conv)/conv*100:.1f}%")
 
+    st.markdown("#### 1) 예상 전환가격")
     _render("① 발행 시점 전환가", mv["base1"], mv["r1"])
     st.divider()
+    st.markdown("#### 2) 리픽싱 시 예상 전환가격")
     _render("② 미래·리픽싱 시점 추정", mv["base2"], mv["r2"])
 
-    # 비교 요약 테이블
-    rows = []
-    for lbl, base, r in [("① 발행 시점", mv["base1"], mv["r1"]), ("② 미래·리픽싱", mv["base2"], mv["r2"])]:
-        if r:
-            conv = r["예상전환가"]
-            rows.append({"구분": lbl, "기준일": base, "3개월가중평균(원)": r["3개월가중평균"],
-                         "1개월가중평균(원)": r["1개월가중평균"], "전일종가(원)": r["전일종가"],
-                         "예상전환가(원)": conv, "현재가(원)": mv["cur"],
-                         "패리티(%)": round(mv["cur"]/conv*100, 1) if conv else None})
-    if rows:
-        show_table(pd.DataFrame(rows), f"전환가_{mv['name']}", "mv_dl")
-
-    # ---- AI 주가 전망 / 전환 타이밍 ----
+    # ---- 3) 적정 주가 (AI · 기본 표시) ----
     st.divider()
-    st.subheader("🤖 AI 주가 전망 · 전환 타이밍 의견")
+    st.markdown("#### 3) 적정 주가")
     if not anthropic_key:
-        st.caption("사이드바에 Anthropic API 키를 넣으면, 피어/절대가치 관점의 주가 전망과 전환 타이밍 의견을 받을 수 있습니다.")
-        return
-    if st.button("AI 전망 생성", type="primary", key="mv_ai_btn"):
-        c1v = mv["r1"]["예상전환가"] if mv["r1"] else None
-        c2v = mv["r2"]["예상전환가"] if mv["r2"] else None
-        fin_txt = ""
-        try:
-            fin = fetch_company_financials(api_key, mv["corp_code"], today.year - 1, today.year)
-            la = f"{today.year-1}년"
-            d = fin.get(la, {})
-            fin_txt = (f"매출 {d.get('매출액')}억, 영업이익 {d.get('영업이익')}억, "
-                       f"부채총계 {d.get('부채총계')}억, 자본총계 {d.get('자본총계')}억")
-        except Exception:
-            fin_txt = "자료 없음"
-        lines = [
-            f"- 종목: {mv['name']}({mv['ticker']})",
-            f"- 현재가: {mv['cur']:,.0f}원, 52주 고가 {mv['hi52']:,.0f}원 / 저가 {mv['lo52']:,.0f}원",
-            f"- 최근 수익률: 1개월 {mv['ret1m']}% · 3개월 {mv['ret3m']}%",
-        ]
-        if c1v:
-            lines.append(f"- 예상 전환가(발행 가정 {mv['base1']}): {c1v:,.0f}원")
-        if c2v:
-            lines.append(f"- 예상 전환가(미래 {mv['base2']}, 현재가 가정): {c2v:,.0f}원")
-        lines.append(f"- 직전연도 재무: {fin_txt}")
-        ctx = "\n".join(lines)
-        try:
-            with st.spinner("AI가 주가 전망·전환 타이밍을 정리하는 중..."):
-                memo = mezz_val_ai(anthropic_key, ai_model, ctx)
-            st.session_state["mv_ai"] = memo
-        except DartError as e:
-            st.error(str(e))
-    if "mv_ai" in st.session_state:
-        st.markdown(st.session_state["mv_ai"])
+        st.caption("사이드바에 Anthropic API 키를 넣으면, 피어그룹·절대가치 관점의 적정 주가와 전환 타이밍 의견이 자동으로 표시됩니다.")
+    else:
+        # 새 조회(mv_btn) 시 mv_ai 를 비워두므로, 없으면 1회 자동 생성 후 세션에 고정
+        if "mv_ai" not in st.session_state:
+            c1v = mv["r1"]["예상전환가"] if mv["r1"] else None
+            c2v = mv["r2"]["예상전환가"] if mv["r2"] else None
+            fin_txt = ""
+            try:
+                fin = fetch_company_financials(api_key, mv["corp_code"], today.year - 1, today.year)
+                la = f"{today.year-1}년"
+                d = fin.get(la, {})
+                fin_txt = (f"매출 {d.get('매출액')}억, 영업이익 {d.get('영업이익')}억, "
+                           f"부채총계 {d.get('부채총계')}억, 자본총계 {d.get('자본총계')}억")
+            except Exception:
+                fin_txt = "자료 없음"
+            lines = [
+                f"- 종목: {mv['name']}({mv['ticker']})",
+                f"- 현재가: {mv['cur']:,.0f}원, 52주 고가 {mv['hi52']:,.0f}원 / 저가 {mv['lo52']:,.0f}원",
+                f"- 최근 수익률: 1개월 {mv['ret1m']}% · 3개월 {mv['ret3m']}%",
+            ]
+            if c1v:
+                lines.append(f"- 예상 전환가(발행 가정 {mv['base1']}): {c1v:,.0f}원")
+            if c2v:
+                lines.append(f"- 예상 전환가(미래 {mv['base2']}, 현재가 가정): {c2v:,.0f}원")
+            lines.append(f"- 직전연도 재무: {fin_txt}")
+            ctx = "\n".join(lines)
+            try:
+                with st.spinner("AI가 적정 주가·전환 타이밍을 정리하는 중..."):
+                    st.session_state["mv_ai"] = mezz_val_ai(anthropic_key, ai_model, ctx)
+            except DartError as e:
+                st.error(str(e))
+                st.session_state["mv_ai"] = {"peer": "", "absolute": "", "timing": ""}
+
+        ai = st.session_state.get("mv_ai") or {}
+        st.markdown("**3-1) 피어그룹**")
+        st.markdown(ai.get("peer") or "_(자료 부족으로 산정 불가)_")
+        st.markdown("**3-2) 절대가치**")
+        st.markdown(ai.get("absolute") or "_(자료 부족으로 산정 불가)_")
+
+    # ---- 결론 (AI · 기본 표시) ----
+    st.divider()
+    st.markdown("#### 결론")
+    if not anthropic_key:
+        st.caption("사이드바에 Anthropic API 키를 넣으면 전환 타이밍 의견이 자동으로 표시됩니다.")
+    else:
+        ai = st.session_state.get("mv_ai") or {}
+        st.markdown(ai.get("timing") or "_(자료 부족으로 산정 불가)_")
         st.caption("※ 실시간 시세·시장상황에 따라 달라지는 참고용 추정입니다. 투자 권유가 아닙니다.")
 
 
@@ -2031,7 +2124,14 @@ def _apply_screener_filter(df, major, sub, cap_col):
     s = df
     if major == "시가총액":
         if cap_col in s.columns:
-            s = s[s[cap_col].notna() & (pd.to_numeric(s[cap_col], errors="coerce") >= sub)]
+            cap = pd.to_numeric(s[cap_col], errors="coerce")
+            lo, hi = (sub if isinstance(sub, (tuple, list)) else (sub, 0))
+            m = cap.notna()
+            if lo:
+                m &= cap >= lo
+            if hi:
+                m &= cap <= hi
+            s = s[m]
     elif major == "전환가격 조정(리픽싱)":
         if sub in ("있음", "없음"):
             s = s[s["리픽싱유무"] == sub]
@@ -2169,7 +2269,7 @@ def _rcept_from_url(u):
 
 
 def tab_screener(corp_df):
-    st.header("🔎 발행내역 · 전체 screen")
+    st.header("🔎 Ⅱ. Look-up - 1. 발행내역 전체 screen")
     st.caption("【Flow 1단계】 발행가능성 있는 기업을 **러프하게** 찾는 단계입니다. 기간·시가총액·발행유형(CB/BW/유상증자)·"
                "조건을 골라 전체 발행내역을 한눈에 봅니다. 회사명을 비우면 기간 내 전체가, 입력하면 그 회사만 나옵니다. "
                "여기서 전체 리스트를 추린 뒤 → 'Ⅱ-2. 발행 후보 기업 · look-up'에서 세부 조건으로 좁히세요.")
@@ -2181,8 +2281,9 @@ def tab_screener(corp_df):
     kind_code = "CB" if type_label.startswith("CB") else ("BW" if type_label.startswith("BW") else None)
 
     p1, p2 = st.columns([1, 1])
-    period = p1.selectbox("조회 기간", ["최근 1개월", "최근 3개월", "최근 6개월", "최근 1년",
-                                     "2026", "2025", "2024", "직접 지정"], index=2)
+    _yrs = [str(y) for y in range(dt.date.today().year, 2016, -1)]   # 2017 ~ 올해
+    period = p1.selectbox("조회 기간", ["최근 1개월", "최근 3개월", "최근 6개월", "최근 1년"]
+                          + _yrs + ["직접 지정"], index=2)
     major = None
     if is_cbbw:
         major = p2.selectbox("대항목(조건 필터)", SCREENER_MAJORS)
@@ -2197,7 +2298,12 @@ def tab_screener(corp_df):
     sub = None
     if is_cbbw:
         if major == "시가총액":
-            sub = st.number_input("중항목 — 시가총액 ≥ (억원)", value=3000.0, step=500.0, format="%.0f")
+            cc1s, cc2s = st.columns(2)
+            cap_lo = cc1s.number_input("중항목 — 시가총액 최소 (억원, 0=하한없음)",
+                                       value=0.0, step=500.0, format="%.0f", key="scr_cap_lo")
+            cap_hi = cc2s.number_input("중항목 — 시가총액 최대 (억원, 0=상한없음)",
+                                       value=0.0, step=500.0, format="%.0f", key="scr_cap_hi")
+            sub = (cap_lo, cap_hi)
         elif major == "전환가격 조정(리픽싱)":
             sub = st.selectbox("중항목 — 리픽싱", ["전체", "있음", "없음"])
         elif major == "표면이자율":
@@ -2506,25 +2612,221 @@ def analysis_ai(anthropic_key, model, lines, n_cand):
     return "".join(getattr(b, "text", "") for b in msg.content)
 
 
-def tab_analysis(corp_df):
-    st.header("🧭 Ⅲ. Analysis · 후보기업 활용")
-    st.caption("【Flow 3단계】 'Ⅱ-2. 발행 후보 기업 · look-up'에서 도출한 기업들을 대상으로, 어떤 기업이 딜소싱 후보로 "
-               "유력한지 자금수요·상환부담·발행 타이밍을 종합해 순위화합니다. "
-               "특정 기업의 상세 발행내역은 '발행내역 확인' 탭에서 보세요.")
+def build_candidates_full(corp_df, kind, bs, es, within_days, mincap, add_fin, progress=None):
+    """발행 스캔 → 후보 집계(+선택 재무)까지 한 번에. look-up/Analysis 공용.
+    반환: (cdf, fin_cols, periods)"""
+    df = build_screener_df(kind, bs, es, progress=progress)
+    if not df.empty:
+        df = _attach_market_cap(df, corp_df, kind)
+    if df is None or df.empty:
+        return pd.DataFrame(), [], []
 
-    cdf = st.session_state.get("dm_cdf")
-    periods = st.session_state.get("dm_periods", [])
+    today = dt.date.today()
+    horizon = today + dt.timedelta(days=within_days)
+    price_col = "전환가액(원)" if kind == "CB" else "행사가액(원)"
+    cap_col = "시가총액(억)"
+    cand = []
+    for name, grp in df.groupby("종목명"):
+        total_cnt = len(grp)
+        up = grp[grp["만기일"].notna()].copy()
+        up["_mat"] = pd.to_datetime(up["만기일"], errors="coerce").dt.date
+        up = up[(up["_mat"] >= today) & (up["_mat"] <= horizon)]
+        if up.empty:
+            continue
+        cap = None
+        if cap_col in grp.columns:
+            vals = pd.to_numeric(grp[cap_col], errors="coerce").dropna()
+            cap = int(vals.iloc[0]) if len(vals) else None
+        if mincap and (cap is None or cap < mincap):
+            continue
+        amt = pd.to_numeric(up["사채총액(억)"], errors="coerce").dropna().sum()
+        corp_code = str(grp["_corp_code"].iloc[0]) if "_corp_code" in grp.columns else None
+        g2 = grp.copy()
+        g2["_mat"] = pd.to_datetime(g2["만기일"], errors="coerce").dt.date
+        alive = g2[g2["_mat"].notna() & (g2["_mat"] >= today)]
+        outstanding = pd.to_numeric(alive["사채총액(억)"], errors="coerce").dropna().sum()
+        latest = grp.sort_values("접수일", ascending=False).iloc[0] if "접수일" in grp.columns else grp.iloc[0]
+        cand.append({
+            "종목명": name, "_corp_code": corp_code,
+            "최근 공시일": latest.get("접수일"),
+            "표면이자율(%)": latest.get("표면이자율(%)"),
+            "만기이자율(%)": latest.get("만기이자율(%)"),
+            "만기(년)": latest.get("만기(년)"),
+            price_col: latest.get(price_col),
+            "리픽싱하한(%)": latest.get("리픽싱하한(%)"),
+            "희석비율(%)": latest.get("희석비율(%)"),
+            "사채총액(억)": latest.get("사채총액(억)"),
+            "과거 총 발행": total_cnt,
+            "시가총액(억)": cap,
+            "가장 가까운 만기": min(up["_mat"]).strftime("%Y-%m-%d"),
+            "도래 예정액(억)": int(amt) if amt else None,
+            "만기전 발행잔액(억)": int(outstanding) if outstanding else None,
+            "도래 회차수": len(up),
+        })
+    cdf = pd.DataFrame(cand).sort_values("가장 가까운 만기").reset_index(drop=True) if cand else pd.DataFrame()
+
+    fin_cols, periods = [], []
+    if add_fin and not cdf.empty:
+        ann_year = today.year - 1
+        cur_year = today.year
+        periods = [f"{ann_year-2}년", f"{ann_year-1}년", f"{ann_year}년", f"{cur_year}년 상반기"]
+        fin_cols = [f"{p} {m}" for p in periods for m in DEMAND_FIN_METRICS]
+        pbar = st.progress(0.0, "후보기업 최신 보고서에서 재무 추출 중...")
+        tot_n = len(cdf)
+        fin_rows = []
+        for i, r in cdf.iterrows():
+            cc = r["_corp_code"]
+            fin = fetch_company_financials(api_key, cc, ann_year, cur_year) if cc else {}
+            row = {}
+            for p in periods:
+                pdata = fin.get(p, {})
+                for m in DEMAND_FIN_METRICS:
+                    row[f"{p} {m}"] = pdata.get(m)
+            fin_rows.append(row)
+            pbar.progress((i + 1) / tot_n, f"재무 추출 중... {i+1}/{tot_n}개사")
+        pbar.empty()
+        cdf = pd.concat([cdf, pd.DataFrame(fin_rows, index=cdf.index)], axis=1)
+    return cdf, fin_cols, (periods if add_fin else [])
+
+
+def tab_analysis(corp_df):
+    st.header("🧭 Ⅲ. Analysis")
+    st.caption("【Flow 3단계】 발행 후보 기업을 대상으로, 어떤 기업이 딜소싱 후보로 유력한지 "
+               "자금수요·상환부담·발행 타이밍을 종합해 순위화합니다. 아래에서 **유형·기간을 직접 정해 조회**하거나, "
+               "'Ⅱ-2. 발행 후보 기업 · look-up'의 결과를 그대로 이어받아 분석합니다.")
+
+    # ---- 자체 조회 컨트롤 (look-up의 1) 일반적 발행 검토와 동일) ----
+    a0, a1, a2, a3 = st.columns([1.2, 2, 2, 2])
+    an_kind = a0.radio("발행 유형", ["CB", "BW"], horizontal=True, key="an_kind")
+    an_scan = a1.selectbox("스캔 대상 (발행 시점)",
+                           ["최근 3년 발행분", "최근 5년 발행분", "최근 2년 발행분", "연도 범위 지정"],
+                           key="an_scan",
+                           help="'연도 범위 지정'으로 특정 연도(예: 2018~2021)에 발행한 기업만 볼 수 있습니다.")
+    an_within = a2.selectbox("만기 도래 기간", ["앞으로 6개월", "앞으로 12개월", "앞으로 18개월", "앞으로 24개월"],
+                             key="an_within")
+    an_mincap = a3.number_input("시가총액 최소 (억, 0=전체)", value=0.0, step=500.0, format="%.0f", key="an_mincap")
+
+    _antoday = dt.date.today()
+    if an_scan == "연도 범위 지정":
+        _ayrs = list(range(2017, _antoday.year + 1))
+        asc1, asc2 = st.columns(2)
+        asy_from = asc1.selectbox("발행 시작 연도", _ayrs, index=max(0, len(_ayrs) - 4), key="an_yfrom")
+        asy_to = asc2.selectbox("발행 종료 연도", _ayrs, index=len(_ayrs) - 1, key="an_yto")
+        if asy_from > asy_to:
+            asy_from, asy_to = asy_to, asy_from
+        an_scan_bs = f"{asy_from}0101"
+        an_scan_es = min(_antoday, dt.date(asy_to, 12, 31)).strftime("%Y%m%d")
+    else:
+        an_scan_years = {"최근 2년 발행분": 2, "최근 3년 발행분": 3, "최근 5년 발행분": 5}[an_scan]
+        an_scan_bs = (_antoday - dt.timedelta(days=365 * an_scan_years)).strftime("%Y%m%d")
+        an_scan_es = _antoday.strftime("%Y%m%d")
+
+    an_add_fin = st.checkbox("후보기업 연도별 재무 추가 (매출·영업이익·현금성자산·부채·자본 / 최신 보고서 기준)",
+                             value=True, key="an_fin")
+    an_loss3 = st.checkbox("최근 3개년 연속 영업적자 제외", key="an_loss3",
+                           help="최근 3개 사업연도 영업이익이 모두 적자인 기업을 결과에서 제외합니다. (재무 추가 필요)")
+    an_within_days = {"앞으로 6개월": 183, "앞으로 12개월": 365, "앞으로 18개월": 548, "앞으로 24개월": 730}[an_within]
+
+    if st.button("조회", type="primary", key="an_btn"):
+        bs, es = an_scan_bs, an_scan_es
+        pbar = st.progress(0.0, "준비 중...")
+        try:
+            _cdf, _fc, _pe = build_candidates_full(corp_df, an_kind, bs, es, an_within_days,
+                                                   an_mincap, an_add_fin,
+                                                   progress=lambda f, t: pbar.progress(f, t))
+        except DartError as e:
+            pbar.empty(); st.error(str(e)); return
+        pbar.empty()
+        st.session_state["an_cdf"] = _cdf
+        st.session_state["an_fincols"] = _fc
+        st.session_state["an_periods"] = _pe
+        st.session_state["an_src_kind"] = an_kind
+        st.session_state.pop("an_ai", None)
+        st.session_state.pop("an_sum_sig", None)
+
+    # ---- 데이터 소스: 자체 조회(an_cdf) 우선, 없으면 look-up 결과(dm_cdf) ----
+    st.divider()
+    if "an_cdf" in st.session_state:
+        cdf = st.session_state.get("an_cdf")
+        periods = st.session_state.get("an_periods", [])
+        fin_cols = st.session_state.get("an_fincols", [])
+        kind_src = st.session_state.get("an_src_kind", "CB")
+    else:
+        cdf = st.session_state.get("dm_cdf")
+        periods = st.session_state.get("dm_periods", [])
+        fin_cols = st.session_state.get("dm_fincols", [])
+        _dmcfg = st.session_state.get("dm_cfg")
+        kind_src = _dmcfg[4] if (_dmcfg and len(_dmcfg) > 4) else "CB"
     if cdf is None or len(cdf) == 0:
-        st.info("먼저 'Ⅱ-2. 발행 후보 기업 · look-up'에서 **수요기업 발굴**(재무 추가 켠 상태)을 실행하세요. "
-                "그 결과가 이 탭으로 자동 연결됩니다.")
+        st.info("위에서 **조회**를 눌러 유형·기간별 후보를 불러오거나, "
+                "'Ⅱ-2. 발행 후보 기업 · look-up'에서 **수요기업 발굴**을 먼저 실행하세요.")
         return
 
     annuals = [p for p in periods if "상반기" not in p]
+    # 최근 3개년 연속 영업적자 제외 (체크 시)
+    if an_loss3 and periods:
+        ann_cols = [f"{p} 영업이익" for p in annuals[-3:] if f"{p} 영업이익" in cdf.columns]
+        if len(ann_cols) == 3:
+            allneg = pd.Series(True, index=cdf.index)
+            for _c in ann_cols:
+                _vv = pd.to_numeric(cdf[_c], errors="coerce")
+                allneg &= _vv.notna() & (_vv < 0)
+            cdf = cdf[~allneg].reset_index(drop=True)
+        else:
+            st.caption("※ 연속 영업적자 제외는 '재무 추가'가 켜진 상태(3개 사업연도 영업이익)에서만 적용됩니다.")
     la = annuals[-1] if annuals else (periods[-1] if periods else None)
     cur = f"{dt.date.today().year}년 상반기"
     lp = cur if (periods and cur in periods) else la
     today = dt.date.today()
 
+    # ===== 요약 데이터 준비 (상단 상세 + 하단 표 공용) =====
+    es_a = today.strftime("%Y%m%d")
+    names = [str(n) for n in cdf["종목명"].tolist()]
+    code_map = {str(r.get("종목명")): str(r.get("_corp_code")) for _, r in cdf.iterrows()}
+    sumsig = (tuple(names), kind_src)
+    if st.session_state.get("an_sum_sig") != sumsig:
+        srows = []
+        pbar = st.progress(0.0, "발행이력 요약 집계 중...")
+        n_tot = max(len(cdf), 1)
+        for i2, nm in enumerate(names, 1):
+            cc = code_map.get(nm)
+            recs = build_company_bonds(api_key, cc, kind_src, "20120101", es_a) if cc and cc != "None" else []
+            issues = [x["발행일"] for x in recs if x["발행일"]]
+            last = max(issues) if issues else None
+            elapsed = _months_between(last, today) if last else None
+            total = sum(x["발행액(억)"] or 0 for x in recs)
+            mats = [x for x in recs if x["만기일"] and x["만기일"] >= today]
+            up = [x for x in mats if x["만기일"] <= today + dt.timedelta(days=550)]
+            outb = sum((x["발행액(억)"] or 0) for x in recs if x["만기일"] and x["만기일"] >= today)
+            srows.append({"기업명": nm, "총 발행 회차": len(recs), "누적 발행액(억)": total,
+                          "만기전 발행잔액(억)": outb,
+                          "직전 발행 후(개월)": elapsed, "18개월 내 만기(건)": len(up)})
+            pbar.progress(i2 / n_tot, f"요약 집계 {i2}/{n_tot}")
+        pbar.empty()
+        st.session_state["an_sum"] = pd.DataFrame(srows)
+        st.session_state["an_sum_sig"] = sumsig
+    sumdf = st.session_state.get("an_sum", pd.DataFrame())
+
+    # ===== (맨 위) 선택 기업 CB 발행 동향 상세 =====
+    _selst = st.session_state.get("an_sum_tbl") or {}
+    _selrows = (_selst.get("selection") or {}).get("rows", []) if isinstance(_selst, dict) else []
+    if _selrows and not sumdf.empty and _selrows[0] < len(sumdf):
+        pick_nm = str(sumdf.iloc[_selrows[0]]["기업명"])
+        pick_cc = code_map.get(pick_nm)
+        if st.session_state.get("an_co_last") != pick_nm:   # 기업 바뀌면 이전 AI 결과 제거
+            st.session_state.pop("an_co_report", None)
+            st.session_state.pop("an_co_uw", None)
+            st.session_state["an_co_last"] = pick_nm
+        if pick_cc and pick_cc != "None":
+            with st.spinner(f"{pick_nm} 상세 발행내역을 불러오는 중..."):
+                recs_d = build_company_bonds(api_key, pick_cc, kind_src, "20120101", es_a)
+            render_company_detail(pick_nm, pick_cc, kind_src, recs_d, key_prefix="an_co")
+        else:
+            st.info("이 기업의 기업코드를 찾지 못해 상세를 불러올 수 없습니다.")
+    else:
+        st.info("아래 **발행내역 요약 (기업별)** 표에서 기업 행을 클릭하면, 그 기업의 CB 발행 동향이 여기(맨 위)에 표시됩니다.")
+
+    # ===== 딜소싱 순위 (점수·등급) =====
     rows = []
     for _, r in cdf.iterrows():
         cash = _safe_num(r.get(f"{lp} 현금성자산")) if lp else None
@@ -2571,11 +2873,37 @@ def tab_analysis(corp_df):
     m3.metric("B등급(주목)", f"{nB}개사")
     st.caption("딜소싱점수: 만기 임박(≤6M +2/≤1Y +1) · 현금성(≤100억 +2/≤300억 +1) · 영업적자 +1 · 이자>현금성 +1 · "
                "미상환≥시총10% +1 → A(5↑)·B(3~4)·C. 점수 높을수록 자금수요·차환 필요성이 큼.")
-    show_table(rdf, f"Analysis_후보순위_{dt.date.today():%Y%m%d}", "an_dl")
+
+    # 표시 테이블: look-up(발행 후보 기업)과 '동일한' 발행조건 컬럼으로 보여준다.
+    #   (딜소싱점수·등급은 순위 파악용으로 좌측에 유지)
+    price_col = "전환가액(원)" if "전환가액(원)" in cdf.columns else "행사가액(원)"
+    score_map = rdf.set_index("회사")[["딜소싱점수", "등급"]].to_dict("index")
+    disp = cdf.copy()
+    disp["딜소싱점수"] = disp["종목명"].map(lambda n: (score_map.get(n) or {}).get("딜소싱점수"))
+    disp["등급"] = disp["종목명"].map(lambda n: (score_map.get(n) or {}).get("등급"))
+    sort_key = "가장 가까운 만기" if "가장 가까운 만기" in disp.columns else "종목명"
+    disp = disp.sort_values(["딜소싱점수", sort_key], ascending=[False, True]).reset_index(drop=True)
+    cond_cols = ["종목명", "딜소싱점수", "등급", "최근 공시일", "표면이자율(%)", "만기이자율(%)",
+                 "만기(년)", price_col, "리픽싱하한(%)", "희석비율(%)", "사채총액(억)",
+                 "과거 총 발행", "시가총액(억)"]
+    order = [c for c in cond_cols if c in disp.columns] + [c for c in fin_cols if c in disp.columns]
+    show = disp[order] if order else disp
+    st.caption("발행조건은 각 기업의 **가장 최근 발행분** 기준입니다(look-up 표와 동일 항목)."
+               + ("  · 재무 단위: 억원, 연결 우선(없으면 별도), 빈칸은 미제출/금융업." if fin_cols else ""))
+    show_table(show, f"Analysis_후보순위_{dt.date.today():%Y%m%d}", "an_dl")
+
+    # ---- 발행내역 요약 (기업별) · 선택 위젯 ----
+    st.divider()
+    st.subheader("📄 발행내역 요약 (기업별)")
+    st.caption("각 후보 기업의 **발행 이력 요약**입니다. 표에서 **기업 행을 클릭하면** 그 기업의 "
+               "CB 발행 동향 상세가 이 화면 **맨 위**에 표시됩니다.")
+    if not sumdf.empty:
+        st.dataframe(sumdf, hide_index=True, use_container_width=True,
+                     on_select="rerun", selection_mode="single-row", key="an_sum_tbl")
 
     # ---- AI 종합 추천 ----
     st.divider()
-    st.subheader("🤖 AI 딜소싱 후보 추천")
+    st.subheader("🤖 딜소싱 후보")
     if not anthropic_key:
         st.caption("사이드바에 Anthropic API 키를 넣으면, 위 후보들을 종합해 유력 순위와 이유를 정리해줍니다.")
     else:
@@ -2632,68 +2960,62 @@ def company_report_ai(anthropic_key, model, company, kind, issue_lines, fin_line
     return "".join(getattr(b, "text", "") for b in msg.content)
 
 
-def tab_company(corp_df):
-    st.header("📄 발행내역 확인 (기업별)")
-    st.caption("특정 기업명을 입력하면 그 기업의 CB/BW 발행 누적현황·회차별 일정·상세·배정기관을 보여주고, "
-               "아래 'AI 딜소싱 리포트'로 한 줄 결론까지 뽑습니다. "
-               "(여러 후보를 한 번에 비교·추천받으려면 'Ⅲ. Analysis · 후보기업 활용' 탭을 이용하세요.)")
+@st.cache_data(show_spinner=False, ttl=1800)
+def latest_periodic_report_url(corp_code):
+    """최신 정기보고서(사업/반기/분기) 원문 뷰어 URL. 없으면 None.
+    (만기전 발행잔액 등은 부정확할 수 있어, 최신 정기보고서 원문으로 직접 확인용)"""
+    try:
+        rows, _, _ = dart_list_all({
+            "corp_code": corp_code, "pblntf_ty": "A",      # A = 정기공시
+            "bgn_de": "20170101", "end_de": dt.date.today().strftime("%Y%m%d"),
+        }, max_pages=3)
+    except Exception:
+        return None
+    best = None
+    for r in rows:
+        nm = r.get("report_nm") or ""
+        if any(k in nm for k in ("사업보고서", "반기보고서", "분기보고서")):
+            rd = r.get("rcept_dt") or ""
+            if best is None or rd > best[0]:
+                best = (rd, r.get("rcept_no"))
+    return (DART_VIEWER + str(best[1])) if (best and best[1]) else None
 
-    c1, c2 = st.columns([3, 1])
-    name = c1.text_input("회사명", "", key="co_name")
-    kind = c2.radio("유형", ["CB", "BW"], key="co_kind")
 
-    if st.button("조회", type="primary", key="co_btn"):
-        row = resolve_corp(name, corp_df)
-        if row is None:
-            st.warning("회사를 찾지 못했습니다. 이름을 정확히 입력해 보세요.")
-            st.session_state.pop("co_data", None)
-            return
-        es = dt.date.today().strftime("%Y%m%d")
-        with st.spinner("회차별 발행내역을 모으는 중..."):
-            recs = build_company_bonds(api_key, row["corp_code"], kind, "20120101", es)
-        st.session_state["co_data"] = {"name": row["corp_name"], "code": row["corp_code"],
-                                       "kind": kind, "recs": recs}
-        st.session_state.pop("co_uw", None)
-        st.session_state.pop("co_report", None)
-
-    data = st.session_state.get("co_data")
-    if not data:
-        return
-    recs, kind = data["recs"], data["kind"]
-    st.subheader(f"{data['name']} · {kind} 발행 동향")
+def render_company_detail(name, code, kind, recs, key_prefix="co"):
+    """한 기업의 발행 동향 상세(지표·신호·타임라인·회차표·AI·인수기관)를 그린다.
+    tab_company 와 Ⅲ.Analysis 드릴다운에서 공통으로 사용."""
+    st.subheader(f"{name} · {kind} 발행 동향")
     if not recs:
         st.info(f"이 회사의 {kind} 발행 내역을 찾지 못했습니다. (해당 유형 발행이 없을 수 있습니다)")
         return
 
     today = dt.date.today()
-    price_col = "최초전환가(원)" if kind == "CB" else "최초행사가(원)"
 
     # ---------- 영업 신호 (상단 지표) ----------
     issues = [r["발행일"] for r in recs if r["발행일"]]
-    last_issue = max(issues)
-    elapsed = _months_between(last_issue, today)
+    last_issue = max(issues) if issues else None
+    elapsed = _months_between(last_issue, today) if last_issue else None
     total_amt = sum(r["발행액(억)"] or 0 for r in recs)
     mats = sorted([r for r in recs if r["만기일"] and r["만기일"] >= today], key=lambda x: x["만기일"])
     upcoming = [r for r in mats if r["만기일"] <= today + dt.timedelta(days=550)]
-    # 미상환 추정 = 아직 만기 전인 회차의 발행액 합계 (전환·조기상환 미반영)
     outstanding = sum((r["발행액(억)"] or 0) for r in recs if r["만기일"] and r["만기일"] >= today)
 
+    st.markdown("#### 1) 누적발행액, 직전발행후 잔액")
     m1, m2, m3, m4, m5 = st.columns(5)
     m1.metric("총 발행 회차", f"{len(recs)}회")
     m2.metric("누적 발행액", f"{total_amt:,}억")
     m3.metric("만기전 발행잔액", f"{outstanding:,}억",
               help="아직 만기 전인 회차 발행액 합계 (미상환 추정 · 전환/조기상환 미반영). 추가 발행 여력 참고용.")
-    m4.metric("직전 발행 후", f"{elapsed}개월", help=f"마지막 발행 {last_issue}")
+    m4.metric("직전 발행 후", f"{elapsed}개월" if elapsed is not None else "-",
+              help=f"마지막 발행 {last_issue}")
     m5.metric("18개월 내 만기", f"{len(upcoming)}건", help="차환/재발행 영업 타이밍")
 
-    # 발행 간격
-    gaps = [ _months_between(issues[i-1], issues[i]) for i in range(1, len(issues)) ]
+    gaps = [_months_between(issues[i-1], issues[i]) for i in range(1, len(issues))]
     if gaps:
         avg_gap = round(sum(gaps) / len(gaps))
         st.caption(f"과거 발행 간격: {' · '.join(str(g)+'개월' for g in gaps)}  (평균 {avg_gap}개월)  "
                    f"→ 직전 발행 후 {elapsed}개월 경과")
 
-    # 영업 신호 박스
     if upcoming:
         lines = [f"- **{r['회차']}회** 만기 {r['만기일']} · 발행액 {r['발행액(억)']}억" for r in upcoming]
         st.success("**🎯 영업 타이밍 신호 — 만기 임박 회차** (차환·재발행 수요 가능)\n\n" + "\n".join(lines))
@@ -2721,29 +3043,93 @@ def tab_company(corp_df):
     st.markdown("##### 회차별 상세")
     show = pd.DataFrame(recs).drop(columns=["_rcept"])
     show["원문"] = [DART_VIEWER + (r["_rcept"] or "") if r["_rcept"] else None for r in recs]
+    # 만기전 발행잔액 등은 부정확할 수 있어, 최신 정기보고서(사업·반기·분기) 원문을 맨 뒤 열에 제공
+    pr_url = latest_periodic_report_url(code)
+    show["최신 정기보고서"] = pr_url
     for dcol in ["발행일", "만기일"]:
         show[dcol] = show[dcol].map(lambda d: d.strftime("%Y-%m-%d") if d else "-")
-    show_table(show, f"발행동향_{data['name']}_{kind}", "co_dl", link_cols=("원문",))
+    show_table(show, f"발행동향_{name}_{kind}", f"{key_prefix}_dl",
+               link_cols=("원문", "최신 정기보고서"))
+    st.caption("※ '만기전 발행잔액'은 전환·조기상환 미반영 추정치입니다. 정확한 잔액은 맨 뒤 '최신 정기보고서' "
+               "원문(사업·반기·분기)에서 확인하세요.")
 
-    # ---------- AI 딜소싱 간략 리포트 ----------
+    # ---------- 2) 기 발행 참여기관 정보 (원문 AI 분석) ----------
     st.divider()
-    st.markdown("##### 📋 AI 딜소싱 리포트")
+    st.markdown("#### 2) 기 발행 참여기관 정보")
+    uw_key = f"{key_prefix}_uw"
+    opts = {f"{r['회차']}회 · {r['발행일']}": r for r in recs if r["_rcept"]}
+    if not anthropic_key:
+        st.caption("사이드바에 Anthropic API 키를 넣으면, 선택한 회차의 원문에서 참여(배정) 기관을 자동으로 뽑아줍니다.")
+    elif not opts:
+        st.caption("원문 링크가 있는 회차가 없어 참여기관을 분석할 수 없습니다.")
+    else:
+        pick = st.selectbox("회차 선택", list(opts.keys()), key=f"{key_prefix}_pick")
+        if st.button("이 회차 참여기관 분석", key=f"{key_prefix}_uw_btn"):
+            r = opts[pick]
+            try:
+                with st.spinner("원문을 가져와 참여기관을 분석하는 중..."):
+                    full = fetch_dart_document(api_key, r["_rcept"])
+                    res = extract_underwriters_ai(anthropic_key, ai_model, full, name, f"{r['회차']}회")
+                st.session_state[uw_key] = (pick, res)
+            except DartError as e:
+                st.error(str(e))
+        if uw_key in st.session_state:
+            lbl, res = st.session_state[uw_key]
+            lst = res.get("인수기관") if isinstance(res, dict) else None
+            st.markdown(f"**{lbl}** 기 발행 참여기관")
+            if lst:
+                show_table(pd.DataFrame(lst), f"참여기관_{name}", f"{key_prefix}_uw_dl")
+            else:
+                st.info("원문에서 참여기관 명단을 찾지 못했습니다. (사모 배정표가 원문에 없을 수 있어요)")
+            st.caption("※ AI 추출값입니다. 신탁은행·증권사 명의 뒤의 실제 운용사까지는 다를 수 있으니 원문과 대조하세요.")
+
+    # ---------- 재무(연속적자) 데이터: 한 번만 받아 3)·결론 공용 ----------
+    ann_year = today.year - 1
+    fin_cache_key = f"{key_prefix}_findata"
+    _cached = st.session_state.get(fin_cache_key)
+    if not _cached or _cached[0] != code:
+        try:
+            fin = fetch_company_financials(api_key, code, ann_year, today.year)
+        except Exception:
+            fin = {}
+        st.session_state[fin_cache_key] = (code, fin)
+    else:
+        fin = _cached[1]
+
+    # ---------- 3) 연속적자 등 재무상태 제외 (선택 기업 최근 3개년 영업이익) ----------
+    st.divider()
+    st.markdown("#### 3) 위험 재무상태 분석")
+    annual_ps = [f"{ann_year-2}년", f"{ann_year-1}년", f"{ann_year}년"]
+    op_vals = [(fin.get(p) or {}).get("영업이익") for p in annual_ps]
+    op_df = pd.DataFrame([{"사업연도": p, "영업이익(억)": v} for p, v in zip(annual_ps, op_vals)])
+    show_table(op_df, f"재무상태_{name}", f"{key_prefix}_fin_dl")
+    nums = [v for v in op_vals if v is not None]
+    if len(nums) == 3 and all(v < 0 for v in nums):
+        st.warning("⚠️ 최근 3개 사업연도 **연속 영업적자** → '연속적자 제외' 필터 적용 시 후보에서 **제외**됩니다. "
+                   "(바이오·로봇 등 특정업종은 별도 판단 필요)")
+    elif len(nums) == 3:
+        st.caption("최근 3개 사업연도 연속 영업적자 아님 → '연속적자 제외' 필터와 무관합니다.")
+    else:
+        st.caption("영업이익 자료가 부족해 연속적자 여부를 판정하기 어렵습니다. (미제출·금융업 등)")
+
+    # ---------- 결론 (AI 딜소싱 리포트) ----------
+    st.divider()
+    st.markdown("#### 결론")
     gaps2 = [_months_between(issues[i - 1], issues[i]) for i in range(1, len(issues))]
     avg_gap2 = round(sum(gaps2) / len(gaps2)) if gaps2 else None
     near6 = [r for r in mats if r["만기일"] <= today + dt.timedelta(days=183)]
+    rep_key = f"{key_prefix}_report"
     if not anthropic_key:
-        st.caption("사이드바에 Anthropic API 키를 넣으면, 위 수치(발행이력)에 재무를 더해 딜소싱 판단 리포트를 생성합니다.")
+        st.caption("사이드바에 Anthropic API 키를 넣으면, 위 수치(발행이력·재무)를 종합해 딜소싱 판단 결론을 생성합니다.")
     else:
-        if st.button("딜소싱 리포트 생성", type="primary", key="co_report_btn"):
+        if st.button("결론(딜소싱 판단) 생성", type="primary", key=f"{key_prefix}_report_btn"):
             try:
                 with st.spinner("최신 재무를 받아 종합 판단 중..."):
-                    ann_year = today.year - 1
-                    fin = fetch_company_financials(api_key, data["code"], ann_year, today.year)
                     la = f"{ann_year}년"
                     lp = f"{today.year}년 상반기" if f"{today.year}년 상반기" in fin else la
 
                     def _g(period, m):
-                        return fin.get(period, {}).get(m)
+                        return (fin.get(period) or {}).get(m)
                     fin_lines = (
                         f"- 현금성자산({lp}): {_g(lp, '현금성자산')}\n"
                         f"- 직전 영업이익({la}): {_g(la, '영업이익')}\n"
@@ -2757,43 +3143,43 @@ def tab_company(corp_df):
                         f"- 직전 발행 후 경과: {elapsed}개월, 과거 평균 발행주기: {avg_gap2}개월\n"
                         f"- 6개월 내 만기: {len(near6)}건, 18개월 내 만기: {len(upcoming)}건"
                     )
-                    memo = company_report_ai(anthropic_key, ai_model, data["name"], kind, issue_lines, fin_lines)
-                st.session_state["co_report"] = memo
+                    memo = company_report_ai(anthropic_key, ai_model, name, kind, issue_lines, fin_lines)
+                st.session_state[rep_key] = memo
             except DartError as e:
                 st.error(str(e))
-        if "co_report" in st.session_state:
-            st.success(st.session_state["co_report"])
+        if rep_key in st.session_state:
+            st.success(st.session_state[rep_key])
             st.caption("※ 투자권유가 아니라 영업(딜소싱) 참고용입니다. 미상환 잔액은 전환·조기상환 미반영 추정치이니 원문과 대조하세요.")
 
-    # ---------- 인수(배정) 기관 — AI ----------
-    st.divider()
-    st.markdown("##### 인수(배정) 기관 — 원문 AI 분석")
-    if not anthropic_key:
-        st.caption("사이드바에 Anthropic API 키를 넣으면, 선택한 회차의 원문에서 참여 기관을 자동으로 뽑아줍니다.")
-        return
-    opts = {f"{r['회차']}회 · {r['발행일']}": r for r in recs if r["_rcept"]}
-    if not opts:
-        return
-    pick = st.selectbox("회차 선택", list(opts.keys()), key="co_pick")
-    if st.button("이 회차 인수기관 분석", key="co_uw_btn"):
-        r = opts[pick]
-        try:
-            with st.spinner("원문을 가져와 인수기관을 분석하는 중..."):
-                full = fetch_dart_document(api_key, r["_rcept"])
-                res = extract_underwriters_ai(anthropic_key, ai_model, full, data["name"], f"{r['회차']}회")
-            st.session_state["co_uw"] = (pick, res)
-        except DartError as e:
-            st.error(str(e))
+
+def tab_company(corp_df):
+    st.header("📄 발행내역 확인 (기업별)")
+    st.caption("특정 기업명을 입력하면 그 기업의 CB/BW 발행 누적현황·회차별 일정·상세·배정기관을 보여주고, "
+               "아래 'AI 딜소싱 리포트'로 한 줄 결론까지 뽑습니다. "
+               "(여러 후보를 한 번에 비교·추천받으려면 'Ⅲ. Analysis' 탭을 이용하세요.)")
+
+    c1, c2 = st.columns([3, 1])
+    name = c1.text_input("회사명", "", key="co_name")
+    kind = c2.radio("유형", ["CB", "BW"], key="co_kind")
+
+    if st.button("조회", type="primary", key="co_btn"):
+        row = resolve_corp(name, corp_df)
+        if row is None:
+            st.warning("회사를 찾지 못했습니다. 이름을 정확히 입력해 보세요.")
+            st.session_state.pop("co_data", None)
             return
-    if "co_uw" in st.session_state:
-        lbl, res = st.session_state["co_uw"]
-        lst = res.get("인수기관") if isinstance(res, dict) else None
-        st.markdown(f"**{lbl}** 인수(배정) 기관")
-        if lst:
-            show_table(pd.DataFrame(lst), f"인수기관_{data['name']}", "co_uw_dl")
-        else:
-            st.info("원문에서 인수기관 명단을 찾지 못했습니다. (사모 배정표가 원문에 없을 수 있어요)")
-        st.caption("※ AI 추출값입니다. 신탁은행·증권사 명의 뒤의 실제 운용사까지는 다를 수 있으니 원문과 대조하세요.")
+        es = dt.date.today().strftime("%Y%m%d")
+        with st.spinner("회차별 발행내역을 모으는 중..."):
+            recs = build_company_bonds(api_key, row["corp_code"], kind, "20120101", es)
+        st.session_state["co_data"] = {"name": row["corp_name"], "code": row["corp_code"],
+                                       "kind": kind, "recs": recs}
+        st.session_state.pop("co_uw", None)
+        st.session_state.pop("co_report", None)
+
+    data = st.session_state.get("co_data")
+    if not data:
+        return
+    render_company_detail(data["name"], data["code"], data["kind"], data["recs"], key_prefix="co")
 
 
 # ==================================================================
@@ -2912,48 +3298,68 @@ def fetch_company_financials(api_key_arg, corp_code, ann_year, cur_year):
 
 
 def tab_demand(corp_df):
-    st.header("🎯 발행 후보 기업 · look-up")
-    st.caption("【Flow 2단계】 발행가능성 있는 기업을 **구체적으로** 찾습니다. 과거 CB 발행 이력이 있는 기업 중, "
+    st.header("🎯 Ⅱ. Look-up - 2. 발행후보 기업 - look-up")
+    st.caption("【Flow 2단계】 발행가능성 있는 기업을 **구체적으로** 찾습니다. 과거 CB/BW 발행 이력이 있는 기업 중, "
                "① 시가총액 ② 영업이익 규모 ③ 현금성자산 ④ 이자비용 조건을 직접 걸어 후보 리스트를 추립니다. "
-               "추린 기업은 → 'Ⅲ. Analysis · 후보기업 활용'에서 발행여부·조건·시기를 판단하세요.")
+               "추린 기업은 → 'Ⅲ. Analysis'에서 발행여부·조건·시기를 판단하세요.")
 
-    c1, c2, c3 = st.columns(3)
-    scan = c1.selectbox("스캔 대상 (발행 시점)", ["최근 3년 발행분", "최근 5년 발행분", "최근 2년 발행분"],
-                        help="곧 만기인 CB는 보통 3~5년 전에 발행됐습니다. DB 적재분에서 즉시 조회합니다.")
+    st.subheader("1) 일반적 발행 검토")
+    c0, c1, c2, c3 = st.columns([1.2, 2, 2, 2])
+    kind = c0.radio("발행 유형", ["CB", "BW"], horizontal=True, key="dm_kind",
+                    help="CB=전환사채 / BW=신주인수권부사채. 선택한 유형의 발행 이력을 기준으로 후보를 찾습니다.")
+    scan = c1.selectbox("스캔 대상 (발행 시점)",
+                        ["최근 3년 발행분", "최근 5년 발행분", "최근 2년 발행분", "연도 범위 지정"],
+                        help="곧 만기인 CB/BW는 보통 3~5년 전에 발행됐습니다. DB 적재분에서 즉시 조회합니다. "
+                             "'연도 범위 지정'으로 특정 연도(예: 2018~2021)에 발행한 기업만 볼 수도 있습니다.")
     within = c2.selectbox("만기 도래 기간", ["앞으로 6개월", "앞으로 12개월", "앞으로 18개월", "앞으로 24개월"])
     mincap = c3.number_input("시가총액 최소 (억, 0=전체)", value=0.0, step=500.0, format="%.0f")
+
+    _today = dt.date.today()
+    if scan == "연도 범위 지정":
+        _yrs = list(range(2017, _today.year + 1))
+        sc1, sc2 = st.columns(2)
+        sy_from = sc1.selectbox("발행 시작 연도", _yrs, index=max(0, len(_yrs) - 4), key="dm_yfrom")
+        sy_to = sc2.selectbox("발행 종료 연도", _yrs, index=len(_yrs) - 1, key="dm_yto")
+        if sy_from > sy_to:
+            sy_from, sy_to = sy_to, sy_from
+        scan_bs = f"{sy_from}0101"
+        scan_es = min(_today, dt.date(sy_to, 12, 31)).strftime("%Y%m%d")
+    else:
+        scan_years = {"최근 2년 발행분": 2, "최근 3년 발행분": 3, "최근 5년 발행분": 5}[scan]
+        scan_bs = (_today - dt.timedelta(days=365 * scan_years)).strftime("%Y%m%d")
+        scan_es = _today.strftime("%Y%m%d")
 
     add_fin = st.checkbox("후보기업 연도별 재무 추가 (매출·영업이익·현금성자산·부채·자본 / 최신 보고서 기준)",
                           value=True, key="dm_fin")
 
-    scan_years = {"최근 2년 발행분": 2, "최근 3년 발행분": 3, "최근 5년 발행분": 5}[scan]
     within_days = {"앞으로 6개월": 183, "앞으로 12개월": 365, "앞으로 18개월": 548, "앞으로 24개월": 730}[within]
     st.caption("※ '🗄️ 데이터 관리(DB)'에서 백필한 범위 안에서 조회됩니다. 재무 추가는 후보 수에 따라 30초~2분 걸릴 수 있습니다.")
 
     if st.button("수요기업 발굴", type="primary", key="dm_btn"):
-        today = dt.date.today()
-        bs = (today - dt.timedelta(days=365 * scan_years)).strftime("%Y%m%d")
-        es = today.strftime("%Y%m%d")
+        bs, es = scan_bs, scan_es
         pbar = st.progress(0.0, "준비 중...")
         try:
-            df = build_screener_df("CB", bs, es, progress=lambda f, t: pbar.progress(f, t))
+            df = build_screener_df(kind, bs, es, progress=lambda f, t: pbar.progress(f, t))
             if not df.empty:
                 pbar.progress(1.0, "시가총액 계산 중...")
-                df = _attach_market_cap(df, corp_df, "CB")
+                df = _attach_market_cap(df, corp_df, kind)
         except DartError as e:
             pbar.empty()
             st.error(str(e))
             return
         pbar.empty()
         st.session_state["dm_df"] = df
-        st.session_state["dm_cfg"] = (within_days, within, mincap, add_fin)
+        st.session_state["dm_cfg"] = (within_days, within, mincap, add_fin, kind)
         st.session_state.pop("dm_ai", None)
         st.session_state.pop("dm_cdf", None)        # 재계산 유도
 
     if "dm_df" not in st.session_state:
         return
     df = st.session_state["dm_df"]
-    within_days, within_label, mincap, add_fin = st.session_state["dm_cfg"]
+    _cfg = st.session_state["dm_cfg"]
+    within_days, within_label, mincap, add_fin = _cfg[:4]
+    kind = _cfg[4] if len(_cfg) > 4 else "CB"
+    price_col = "전환가액(원)" if kind == "CB" else "행사가액(원)"
     if df is None or df.empty:
         st.info("스캔 결과가 없습니다. '🗄️ 데이터 관리(DB)' 탭에서 먼저 백필했는지 확인하거나, 스캔 범위를 넓혀보세요.")
         return
@@ -2993,7 +3399,7 @@ def tab_demand(corp_df):
                 "표면이자율(%)": latest.get("표면이자율(%)"),
                 "만기이자율(%)": latest.get("만기이자율(%)"),
                 "만기(년)": latest.get("만기(년)"),
-                "전환가액(원)": latest.get("전환가액(원)"),
+                price_col: latest.get(price_col),
                 "리픽싱하한(%)": latest.get("리픽싱하한(%)"),
                 "희석비율(%)": latest.get("희석비율(%)"),
                 "사채총액(억)": latest.get("사채총액(억)"),
@@ -3148,13 +3554,66 @@ def tab_demand(corp_df):
     # 표시 컬럼: 발행조건(전체 screen 성격) + 연도별 재무. 만기/도래액 등 집계치는 숨김(Analysis 탭에서 사용)
     hide = ["_corp_code", "가장 가까운 만기", "도래 예정액(억)", "만기전 발행잔액(억)", "도래 회차수"]
     cond_cols = ["종목명", "최근 공시일", "표면이자율(%)", "만기이자율(%)", "만기(년)",
-                 "전환가액(원)", "리픽싱하한(%)", "희석비율(%)", "사채총액(억)", "과거 총 발행", "시가총액(억)"]
+                 price_col, "리픽싱하한(%)", "희석비율(%)", "사채총액(억)", "과거 총 발행", "시가총액(억)"]
     ordered = [c for c in cond_cols if c in fcdf.columns] + [c for c in fin_cols if c in fcdf.columns]
     show = fcdf[[c for c in ordered if c not in hide]] if ordered else fcdf.drop(columns=[c for c in hide if c in fcdf.columns])
-    st.caption("발행조건은 각 기업의 **가장 최근 CB** 기준입니다. (만기·도래액 등 집계치는 'Ⅲ. Analysis' 탭에서 확인)"
+    st.caption(f"발행조건은 각 기업의 **가장 최근 {kind}** 기준입니다. (만기·도래액 등 집계치는 'Ⅲ. Analysis' 탭에서 확인)"
                + ("  · 재무 단위: 억원, 연결 우선(없으면 별도), 빈칸은 미제출/금융업." if fin_cols else ""))
     show_table(show, f"발행후보_{dt.date.today():%Y%m%d}", "dm_dl")
-    st.caption("→ 이 후보 리스트는 'Ⅲ. Analysis · 후보기업 활용' 탭으로 자동 연결됩니다. 거기서 유력 딜소싱 후보를 순위·추천받으세요.")
+    st.caption("→ 이 후보 리스트는 'Ⅲ. Analysis' 탭으로 자동 연결됩니다. 거기서 유력 딜소싱 후보를 순위·추천받으세요.")
+
+    # ---------- 2) 차환발행 검토 ----------
+    st.divider()
+    st.subheader("2) 차환발행 검토")
+    st.caption("위 **1) 일반적 발행 검토**로 추려진 기업을 대상으로, 직전 발행의 **만기까지 잔존 개월수**와 "
+               "**만기 전 잔존 금액**을 기준으로 차환(만기 상환자금 재조달) 필요성을 봅니다. "
+               "만기가 가까울수록·잔존 금액이 클수록 차환 수요가 큽니다.")
+    rc1, rc2 = st.columns(2)
+    mos_max = rc1.number_input("만기까지 잔존 개월수 ≤ (개월)", value=12.0, step=3.0, format="%.0f",
+                               key="dm_ref_mos", help="직전 발행분 중 가장 가까운 만기까지 남은 개월수")
+    bal_min = rc2.number_input("만기 전 잔존 금액 ≥ (억, 0=미적용)", value=0.0, step=50.0, format="%.0f",
+                               key="dm_ref_bal", help="만기 전 미상환(발행잔액). 클수록 상환·차환 부담이 큼")
+
+    ref_today = dt.date.today()
+    rrows = []
+    for _, r in fcdf.iterrows():
+        d = _parse_date(r.get("가장 가까운 만기"))
+        mos = round((d - ref_today).days / 30.44, 1) if d else None
+        bal = _safe_num(r.get("만기전 발행잔액(억)"))
+        due = _safe_num(r.get("도래 예정액(억)"))
+        cap = _safe_num(r.get("시가총액(억)"))
+        ratio = round(bal / cap * 100, 1) if (bal and cap) else None
+        if mos is not None and mos <= 6 and (ratio is not None and ratio >= 10):
+            need = "높음"
+        elif mos is not None and mos <= 12:
+            need = "중간"
+        else:
+            need = "낮음"
+        rrows.append({
+            "종목명": r.get("종목명"), "가장 가까운 만기": r.get("가장 가까운 만기"),
+            "잔존 개월수": mos, "만기전 잔존금액(억)": bal, "도래 예정액(억)": due,
+            "도래 회차수": r.get("도래 회차수"), "최근 사채총액(억)": r.get("사채총액(억)"),
+            "시가총액(억)": cap, "잔액/시총(%)": ratio, "차환 필요성": need,
+        })
+    refdf = pd.DataFrame(rrows)
+    if not refdf.empty:
+        m = pd.to_numeric(refdf["잔존 개월수"], errors="coerce")
+        keep = m.notna() & (m <= mos_max)
+        if bal_min:
+            bb = pd.to_numeric(refdf["만기전 잔존금액(억)"], errors="coerce")
+            keep &= bb.notna() & (bb >= bal_min)
+        refdf = refdf[keep].sort_values(["잔존 개월수", "만기전 잔존금액(억)"],
+                                        ascending=[True, False]).reset_index(drop=True)
+    rm1, rm2 = st.columns(2)
+    rm1.metric("차환 검토 대상", f"{len(refdf)}개사")
+    rtot = pd.to_numeric(refdf["만기전 잔존금액(억)"], errors="coerce").dropna().sum() if not refdf.empty else 0
+    rm2.metric("잔존 금액 합계", f"{int(rtot):,}억")
+    if refdf.empty:
+        st.info("해당 잔존 개월수·금액 조건에 맞는 차환 대상이 없습니다. 조건을 넓혀보세요.")
+    else:
+        st.caption("차환 필요성: 잔존 ≤6개월 & 잔액/시총 ≥10% → **높음**, 잔존 ≤12개월 → **중간**, 그 외 **낮음**. "
+                   "조기상환(풋) 조항이 있으면 실제 차환 시점은 더 빨라질 수 있습니다.")
+        show_table(refdf, f"차환검토_{dt.date.today():%Y%m%d}", "dm_ref_dl")
 
     # ---------- AI 영업 우선순위 ----------
     st.divider()
@@ -3711,7 +4170,7 @@ def _db_bond_df(bgn, es):
     """bond 테이블을 기간으로 조회해 보기 좋은 DataFrame으로."""
     con = db_connect()
     rows = con.execute(
-        "SELECT kind 유형, corp_name 회사, rcept_dt 공시일, issue_date 발행일, maturity 만기일, "
+        "SELECT kind 유형, corp_name 회사, corp_code _corp_code, rcept_dt 공시일, issue_date 발행일, maturity 만기일, "
         "round_no 회차, amount_eok '사채총액(억)', coupon '표면이자율(%)', ytm '만기이자율(%)', "
         "price '전환/행사가(원)', refix_floor '리픽싱하한(원)', refix_pct '리픽싱하한(%)', "
         "dilution '희석비율(%)', rcept_no "
@@ -3725,6 +4184,66 @@ def _db_bond_df(bgn, es):
     return df
 
 
+@st.cache_data(show_spinner=False, ttl=3600)
+def _krx_marcap_map():
+    """KRX 상장목록에서 종목코드→시가총액(억) 맵. (best-effort)"""
+    try:
+        import FinanceDataReader as fdr
+        lst = fdr.StockListing("KRX")
+    except Exception:
+        return {}
+    code_col = next((c for c in ["Code", "Symbol", "종목코드"] if c in lst.columns), None)
+    cap_col = next((c for c in ["Marcap", "MarketCap", "시가총액"] if c in lst.columns), None)
+    if not code_col or not cap_col:
+        return {}
+    m = {}
+    for _, r in lst.iterrows():
+        try:
+            m[str(r[code_col]).zfill(6)] = round(float(r[cap_col]) / 1e8)
+        except Exception:
+            pass
+    return m
+
+
+def _enrich_db_export(df, corp_df, with_fin=True, with_cap=True, progress=None):
+    """발행내역 DB export 에 연도별 재무(2023~2025·당해 상반기)·시가총액을 붙인다.
+       (AI발표 '2023년발행내역' 시트와 동일 구성)"""
+    if df.empty or "_corp_code" not in df.columns:
+        return df
+    today = dt.date.today()
+    fin_periods = ["2023년", "2024년", "2025년", f"{today.year}년 상반기"]
+    metrics = ["매출액", "영업이익", "현금성자산", "부채총계", "자본총계"]
+    codes = [c for c in df["_corp_code"].dropna().astype(str).unique() if c and c != "None"]
+    cap_map = {}
+    fin_map = {}
+    marcap = _krx_marcap_map() if with_cap else {}
+    name_to_stock = {}
+    if corp_df is not None and not corp_df.empty:
+        name_to_stock = {str(r["corp_code"]): str(r.get("stock_code", "") or "").strip()
+                         for _, r in corp_df.iterrows()}
+    n = len(codes)
+    for i, cc in enumerate(codes, 1):
+        if with_fin:
+            try:
+                fin_map[cc] = fetch_company_financials(api_key, cc, 2025, today.year)
+            except Exception:
+                fin_map[cc] = {}
+        if with_cap:
+            sc = name_to_stock.get(cc, "")
+            cap_map[cc] = marcap.get(sc.zfill(6)) if sc else None
+        if progress:
+            progress(i / max(n, 1), f"재무·시가총액 수집 {i}/{n}")
+    out = df.copy()
+    if with_cap:
+        out["시가총액(억)"] = out["_corp_code"].astype(str).map(cap_map)
+    if with_fin:
+        for p in fin_periods:
+            for m in metrics:
+                out[f"{p} {m}"] = out["_corp_code"].astype(str).map(
+                    lambda cc, _p=p, _m=m: (fin_map.get(cc, {}).get(_p) or {}).get(_m))
+    return out
+
+
 def tab_db(corp_df):
     st.header("🗂️ Ⅰ. DB (Data Base)")
     st.caption("과거 CB·BW 발행내역 DB를 Excel로 내보내고, 외부 Excel/CSV를 업로드해 현재 대시보드에 없는 자유로운 분석을 수행합니다.")
@@ -3734,21 +4253,48 @@ def tab_db(corp_df):
     cnt = db_counts()
     st.caption(f"적재된 발행내역: CB {cnt.get('CB',0):,}건 · BW {cnt.get('BW',0):,}건  "
                "(적재는 '데이터 관리 (DB)' 메뉴에서 백필)")
-    yr = st.selectbox("기간", ["최근 3년", "최근 5년", "최근 10년"], index=1, key="db_exp_yr")
-    years = {"최근 3년": 3, "최근 5년": 5, "최근 10년": 10}[yr]
     today = dt.date.today()
-    bs = (today - dt.timedelta(days=365 * years)).strftime("%Y%m%d")
-    es = today.strftime("%Y%m%d")
+    pmode = st.radio("기간 선택 방식", ["연도 범위", "최근 N년"], horizontal=True, key="db_pmode")
+    if pmode == "연도 범위":
+        yrs = list(range(2017, today.year + 1))
+        yc1, yc2 = st.columns(2)
+        y_from = yc1.selectbox("시작 연도", yrs, index=0, key="db_yfrom")
+        y_to = yc2.selectbox("종료 연도", yrs, index=len(yrs) - 1, key="db_yto")
+        if y_from > y_to:
+            y_from, y_to = y_to, y_from
+        bs = f"{y_from}0101"
+        es = min(today, dt.date(y_to, 12, 31)).strftime("%Y%m%d")
+        plabel = f"{y_from}-{y_to}" if y_from != y_to else f"{y_from}"
+    else:
+        yr = st.selectbox("최근 기간", ["최근 3년", "최근 5년", "최근 10년"], index=1, key="db_exp_yr")
+        years = {"최근 3년": 3, "최근 5년": 5, "최근 10년": 10}[yr]
+        bs = (today - dt.timedelta(days=365 * years)).strftime("%Y%m%d")
+        es = today.strftime("%Y%m%d")
+        plabel = yr
+
+    with_fin = st.checkbox("연도별 재무(매출·영업이익·현금성·부채·자본)·시가총액 포함 (느림 · 기업 수에 비례)",
+                           value=False, key="db_exp_fin",
+                           help="2023·2024·2025년 및 당해 상반기 재무와 시가총액을 기업별로 붙입니다. "
+                                "기업 수가 많으면 수십 초~수 분 걸릴 수 있습니다. (AI발표 '발행내역' 시트 구성)")
     if st.button("발행내역 Excel 생성", type="primary", key="db_exp_btn"):
         df = _db_bond_df(bs, es)
         if df.empty:
             st.info("해당 기간에 적재된 발행내역이 없습니다. '데이터 관리 (DB)'에서 먼저 백필하세요.")
+            st.session_state.pop("db_export_df", None)
         else:
+            if with_fin:
+                pbar = st.progress(0.0, "재무·시가총액 수집 중...")
+                df = _enrich_db_export(df, corp_df, with_fin=True, with_cap=True,
+                                       progress=lambda f, t: pbar.progress(f, t))
+                pbar.empty()
+            df = df.drop(columns=[c for c in ["_corp_code"] if c in df.columns])
             st.session_state["db_export_df"] = df
+            st.session_state["db_export_label"] = plabel
     if "db_export_df" in st.session_state:
         edf = st.session_state["db_export_df"]
+        lbl = st.session_state.get("db_export_label", plabel)
         st.caption(f"총 {len(edf):,}건")
-        _download_buttons(edf, f"발행내역DB_{yr}_{today:%Y%m%d}", "db_export_dl")
+        _download_buttons(edf, f"발행내역DB_{lbl}_{today:%Y%m%d}", "db_export_dl")
 
     st.divider()
 
@@ -3835,15 +4381,24 @@ def tab_db(corp_df):
 
 # 메뉴 순서 = Mezzanine 탐색 Flow
 #   Ⅰ.DB → Ⅱ-1 전체 screen → Ⅱ-2 후보 look-up → Ⅲ Analysis → 발행내역 확인 → 기관분석
-MAIN_TABS = {
-    "🗂️ Ⅰ. DB (업로드 분석)": tab_db,
-    "🔎 Ⅱ-1. 발행내역 · 전체 screen": tab_screener,
-    "🎯 Ⅱ-2. 발행 후보 기업 · look-up": tab_demand,
-    "🧭 Ⅲ. Analysis · 후보기업 활용": tab_analysis,
-    "💹 Ⅳ. 밸류에이션 · 전환가/주가 여력": tab_mezz_val,
-    "📄 발행내역 확인 (기업별)": tab_company,
-    "🏦 기관 분석 (배정기관)": tab_institution,
-}
+# 메인 메뉴 = 섹션 헤더 + 하위 항목(버튼). 각 섹션(Ⅰ~Ⅳ)마다 헤더를 붙여 통일.
+#   ※ 라디오 대신 '버튼'으로 구현 → 탭 안의 버튼(AI 등)을 눌러도 메뉴가 바뀌지 않음.
+NAV_GROUPS = [
+    ("Ⅰ. DB", {"🗂️ DB (업로드 분석)": tab_db}),
+    ("Ⅱ. Look-up", {
+        "　1. 발행내역 - 전체 screen": tab_screener,
+        "　2. 발행 후보 기업 - look-up": tab_demand,
+    }),
+    ("Ⅲ. Analysis", {"🧭 Analysis": tab_analysis}),
+    ("Ⅳ. 밸류에이션", {"💹 밸류에이션": tab_mezz_val}),
+    ("개별 조회", {
+        "📄 발행내역 확인 (기업별)": tab_company,
+        "🏦 기관 분석 (배정기관)": tab_institution,
+    }),
+]
+MAIN_TABS = {}
+for _hdr, _grp in NAV_GROUPS:
+    MAIN_TABS.update(_grp)
 OTHER_TABS = {
     "🧮 밸류에이션 (공모가 산정근거 · VC)": tab_valuation,
     "📊 상장사 실적 비교": tab_financials,
@@ -3854,38 +4409,37 @@ OTHER_TABS = {
 }
 TABS = {**MAIN_TABS, **OTHER_TABS}
 
-# 활성 탭(단일 소스). 메인 라디오 / 기타 라디오 중 바뀐 쪽을 반영.
-_default_tab = "🔎 Ⅱ-1. 발행내역 · 전체 screen"
+# 활성 탭(단일 소스).
+_default_tab = "　1. 발행내역 - 전체 screen"
 if "active_tab" not in st.session_state:
     st.session_state["active_tab"] = _default_tab
 
 
-def _pick_main():
-    st.session_state["active_tab"] = st.session_state.get("main_nav")
-    st.session_state.pop("other_nav", None)      # 기타 라디오 선택 해제
+def _nav_section(container, header, items):
+    """섹션 헤더 + 메뉴 버튼들. 선택된 항목은 primary 로 강조."""
+    if header:
+        container.markdown(
+            f"<div class='nav-sec'>{header}</div>", unsafe_allow_html=True)
+    for label in items:
+        selected = (st.session_state["active_tab"] == label)
+        if container.button(label, key=f"nav_btn::{label}",
+                            use_container_width=True,
+                            type="primary" if selected else "secondary"):
+            st.session_state["active_tab"] = label
+            st.rerun()
 
 
-def _pick_other():
-    st.session_state["active_tab"] = st.session_state.get("other_nav")
-    st.session_state.pop("main_nav", None)       # 메인 라디오 선택 해제
-
-
-active = st.session_state["active_tab"]
-main_keys = list(MAIN_TABS.keys())
-other_keys = list(OTHER_TABS.keys())
-st.sidebar.radio("시스템 구성", main_keys,
-                 index=main_keys.index(active) if active in main_keys else None,
-                 key="main_nav", on_change=_pick_main)
-with st.sidebar.expander("➕ 기타 메뉴", expanded=(active in other_keys)):
-    st.radio("기타 메뉴", other_keys,
-             index=other_keys.index(active) if active in other_keys else None,
-             key="other_nav", on_change=_pick_other, label_visibility="collapsed")
+st.sidebar.markdown("### 시스템 구성")
+for _hdr, _grp in NAV_GROUPS:
+    _nav_section(st.sidebar, _hdr, list(_grp.keys()))
+with st.sidebar.expander("➕ 기타 메뉴", expanded=(st.session_state["active_tab"] in OTHER_TABS)):
+    _nav_section(st, None, list(OTHER_TABS.keys()))
 choice = st.session_state["active_tab"]
 st.sidebar.divider()
 st.sidebar.caption("데이터 출처: 금융감독원 OpenDART")
 
 if not api_key:
-    st.info("👈 왼쪽 사이드바에 DART 인증키를 입력하면 시작됩니다.")
+    st.info("👈 왼쪽 사이드바 맨 위 **DART 인증키** 칸에 키를 붙여넣고 **'적용'** 버튼(또는 Enter)을 누르면 대시보드가 열립니다.")
 else:
     try:
         corp_df = load_corp_codes(api_key)
