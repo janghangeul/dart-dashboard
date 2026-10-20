@@ -1300,46 +1300,40 @@ def _px_for_tickers(tickers, max_fetch=250):
 
 
 def _attach_market_cap(df, corp_df, label):
-    """시가총액(억) = 현재가 × 발행주식수. 현재가는 장중 전체 스냅샷(빠름) + 비면 종목별 종가(시간 무관)로 보완."""
+    """시가총액(억): KRX 상장목록의 시가총액을 종목코드로 바로 매핑(1회 캐시 호출 → 빠름).
+    해외(클라우드) 서버에서 종목별 FDR 순차조회(수백 번)로 느려지던 문제를 해소.
+    상장목록에 없는(상폐 등) 종목만, 필요 시 스냅샷×발행주식수로 소량 보완."""
     code_map = {str(c): str(s) for c, s in zip(corp_df["corp_code"], corp_df["stock_code"])}
     size_col = next((c for c in ["사채총액(억)", "조달총액(억)"] if c in df.columns), None)
 
-    # 이 표에 필요한 종목코드
-    tickers = set()
+    marcap = _krx_marcap_map()               # {종목코드: 시가총액(억)} · @cache_data(1시간)
     row_sc = []
     for _, r in df.iterrows():
         raw_sc = code_map.get(str(r.get("_corp_code")), "")
-        sc = raw_sc.zfill(6) if raw_sc and raw_sc.strip() else ""
-        row_sc.append(sc)
-        if sc and len(sc) == 6:
-            tickers.add(sc)
+        row_sc.append(raw_sc.zfill(6) if raw_sc and raw_sc.strip() else "")
 
-    # 1) 전체 스냅샷(FDR) — 장중이면 대부분 채워짐
-    pmap, perr = price_map_current()
-    have = {t: pmap[t] for t in tickers if pmap and t in pmap}
-    # 2) 빠진 종목만 개별 종가로 보완(장 초반 등)
-    missing = [t for t in tickers if t not in have]
-    note = "현재가 스냅샷" if have and not missing else ""
-    remain = 0
-    if missing:
-        more, fetched, remain = _px_for_tickers(missing)
-        have.update(more)
-        note = "종목별 종가(보완)"
+    # 상장목록에 없는 종목만(상폐 등) 스냅샷가격×발행주식수로 보완 (추가 네트워크 없이 스냅샷 1회만)
+    pmap = {}
+    if marcap:
+        need_px = [sc for (_, r), sc in zip(df.iterrows(), row_sc)
+                   if sc and sc not in marcap and pd.notna(r.get("_shares"))]
+        if need_px:
+            pmap, _ = price_map_current()    # 전체 스냅샷 1회(캐시). 종목별 순차조회는 하지 않음.
+    else:
+        pmap, _ = price_map_current()
 
     caps, ratios, matched = [], [], 0
     for (_, r), sc in zip(df.iterrows(), row_sc):
-        cap = None
-        if sc:
-            shares = r.get("_shares")
-            px = have.get(sc)
+        cap = marcap.get(sc) if sc else None
+        if cap is None and sc:               # 상장목록에 없으면 스냅샷×주식수로 시도
+            shares, px = r.get("_shares"), (pmap.get(sc) if pmap else None)
             if pd.notna(shares) and shares and px:
                 cap = round(shares * px / 1e8)
-                matched += 1
+        if cap:
+            matched += 1
         caps.append(cap)
         sz = r.get(size_col) if size_col else None
         ratios.append(round(sz / cap * 100, 1) if (cap and pd.notna(sz)) else None)
-    cap_note = note + (f" · 상위 {len(have)}종목" if have else "")
-    perr = perr or "가격 소스 미응답"
 
     out = df.copy()
     out["시가총액(억)"] = caps
@@ -1353,16 +1347,9 @@ def _attach_market_cap(df, corp_df, label):
         out = out[cols]
 
     if matched == 0:
-        if not have:
-            st.error("시가총액을 계산하지 못했습니다. (가격 소스 미응답 / 장 시작 전에는 실시간 가격이 비어있을 수 있음)  "
-                     f"— 현재가: {perr}")
-        else:
-            st.warning("시가총액 매칭 결과가 없습니다. (비상장이거나 종목코드 매칭 실패)")
+        st.warning("시가총액을 매칭하지 못했습니다. (상장목록 응답 지연이거나 비상장·종목코드 매칭 실패) — 잠시 후 다시 시도해 보세요.")
     else:
-        msg = f"시가총액 출처: {cap_note}"
-        if remain:
-            msg += f" · {remain}개 종목은 가격 조회 상한으로 생략"
-        st.caption(msg)
+        st.caption(f"시가총액 출처: KRX 상장목록(현재) · 매칭 {matched}종목")
     return out
 
 
