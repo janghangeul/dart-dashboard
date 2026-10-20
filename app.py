@@ -1274,29 +1274,34 @@ def _est_total_shares(r, kind):
     return None
 
 
-def _px_for_tickers(tickers, max_fetch=250):
+def _px_for_tickers(tickers, max_fetch=500, workers=12):
     """표에 필요한 종목만 개별 종가를 FDR DataReader로 받아 채운다(장 초반에도 동작).
-       종목별 결과를 세션 캐시해 재사용. 반환 (dict{code:price}, 가져온 수, 남은 수)."""
+       ★ 병렬(ThreadPool)로 받아 해외 서버에서도 빠르게. 세션 캐시 재사용.
+       반환 (dict{code:price}, 가져온 수, 남은 수)."""
     cache = st.session_state.setdefault("_pxcache", {})
-    need = [t for t in tickers if t not in cache]
-    fetched = 0
+    need = [t for t in tickers if t not in cache][:max_fetch]
     if need:
         try:
             import FinanceDataReader as fdr
+            from concurrent.futures import ThreadPoolExecutor, as_completed
             start = (dt.date.today() - dt.timedelta(days=12)).strftime("%Y-%m-%d")
-            for t in need[:max_fetch]:
+
+            def _one(t):   # 워커: st 접근 금지(FDR만)
                 try:
                     d = fdr.DataReader(t, start)
                     s = pd.to_numeric(d["Close"], errors="coerce").dropna() if (d is not None and "Close" in d) else None
-                    cache[t] = float(s.iloc[-1]) if (s is not None and len(s) and s.iloc[-1] > 0) else None
+                    return t, (float(s.iloc[-1]) if (s is not None and len(s) and s.iloc[-1] > 0) else None)
                 except Exception:
-                    cache[t] = None
-                fetched += 1
+                    return t, None
+            with ThreadPoolExecutor(max_workers=workers) as ex:
+                for fut in as_completed([ex.submit(_one, t) for t in need]):
+                    t, px = fut.result()
+                    cache[t] = px          # 결과 반영은 메인 스레드에서
         except ImportError:
             pass
     out = {t: cache[t] for t in tickers if cache.get(t)}
-    remain = max(0, len(need) - max_fetch)
-    return out, fetched, remain
+    remain = len([t for t in tickers if t not in cache])
+    return out, len(need), remain
 
 
 def _attach_market_cap(df, corp_df, label):
@@ -1312,20 +1317,27 @@ def _attach_market_cap(df, corp_df, label):
         raw_sc = code_map.get(str(r.get("_corp_code")), "")
         row_sc.append(raw_sc.zfill(6) if raw_sc and raw_sc.strip() else "")
 
-    # 상장목록에 없는 종목만(상폐 등) 스냅샷가격×발행주식수로 보완 (추가 네트워크 없이 스냅샷 1회만)
+    # 상장목록 시총에 없는(또는 상장목록 자체가 비는) 종목은 '가격 × 발행주식수'로 보완.
+    #  1) 전체 스냅샷 1회 → 2) 그래도 없으면 종목별(병렬) 조회. 발행주식수(_shares)가 있는 종목만.
+    need_px = [sc for (_, r), sc in zip(df.iterrows(), row_sc)
+               if sc and sc not in marcap and pd.notna(r.get("_shares"))]
     pmap = {}
-    if marcap:
-        need_px = [sc for (_, r), sc in zip(df.iterrows(), row_sc)
-                   if sc and sc not in marcap and pd.notna(r.get("_shares"))]
-        if need_px:
-            pmap, _ = price_map_current()    # 전체 스냅샷 1회(캐시). 종목별 순차조회는 하지 않음.
-    else:
-        pmap, _ = price_map_current()
+    px_note = ""
+    remain = 0
+    if need_px:
+        pmap, _ = price_map_current()                     # 스냅샷 1회(캐시)
+        still = [sc for sc in need_px if sc not in pmap]
+        if still:
+            more, _f, remain = _px_for_tickers(still)      # 병렬 종목별 조회
+            pmap.update(more)
+            px_note = " + 종목별 시세 보완"
 
-    caps, ratios, matched = [], [], 0
+    caps, ratios, matched, src_listing = [], [], 0, 0
     for (_, r), sc in zip(df.iterrows(), row_sc):
         cap = marcap.get(sc) if sc else None
-        if cap is None and sc:               # 상장목록에 없으면 스냅샷×주식수로 시도
+        if cap is not None:
+            src_listing += 1
+        elif sc:                                           # 상장목록에 없으면 가격×주식수
             shares, px = r.get("_shares"), (pmap.get(sc) if pmap else None)
             if pd.notna(shares) and shares and px:
                 cap = round(shares * px / 1e8)
@@ -1347,9 +1359,14 @@ def _attach_market_cap(df, corp_df, label):
         out = out[cols]
 
     if matched == 0:
-        st.warning("시가총액을 매칭하지 못했습니다. (상장목록 응답 지연이거나 비상장·종목코드 매칭 실패) — 잠시 후 다시 시도해 보세요.")
+        st.warning("시가총액을 매칭하지 못했습니다. (FinanceDataReader 응답 지연·차단이거나 비상장·종목코드 매칭 실패) "
+                   "— 잠시 후 '조회'를 다시 눌러 보세요.")
     else:
-        st.caption(f"시가총액 출처: KRX 상장목록(현재) · 매칭 {matched}종목")
+        src = "KRX 상장목록" if src_listing else "현재가×발행주식수"
+        msg = f"시가총액 출처: {src}(현재){px_note} · 매칭 {matched}종목"
+        if remain:
+            msg += f" · {remain}개는 가격 조회 상한으로 생략"
+        st.caption(msg)
     return out
 
 
@@ -4280,22 +4297,40 @@ def _db_bond_df(bgn, es):
 
 @st.cache_data(show_spinner=False, ttl=3600)
 def _krx_marcap_map():
-    """KRX 상장목록에서 종목코드→시가총액(억) 맵. (best-effort)"""
+    """KRX 상장목록에서 종목코드→시가총액(억) 맵. (best-effort)
+    FDR 버전에 따라 Marcap 컬럼이 없을 수 있어, 없으면 종가×상장주식수로 산출."""
     try:
         import FinanceDataReader as fdr
         lst = fdr.StockListing("KRX")
     except Exception:
         return {}
-    code_col = next((c for c in ["Code", "Symbol", "종목코드"] if c in lst.columns), None)
-    cap_col = next((c for c in ["Marcap", "MarketCap", "시가총액"] if c in lst.columns), None)
-    if not code_col or not cap_col:
+    if lst is None or len(lst) == 0:
+        return {}
+    cols = list(lst.columns)
+    code_col = next((c for c in ["Code", "Symbol", "종목코드", "ISU_SRT_CD"] if c in cols), None)
+    if not code_col:
+        return {}
+    cap_col = next((c for c in ["Marcap", "MarketCap", "시가총액", "MKTCAP"] if c in cols), None)
+    close_col = next((c for c in ["Close", "종가", "ClosePrice", "현재가", "TDD_CLSPRC"] if c in cols), None)
+    sh_col = next((c for c in ["Stocks", "상장주식수", "ListingShares", "LIST_SHRS", "Shares"] if c in cols), None)
+    if not cap_col and not (close_col and sh_col):
         return {}
     m = {}
     for _, r in lst.iterrows():
-        try:
-            m[str(r[code_col]).zfill(6)] = round(float(r[cap_col]) / 1e8)
-        except Exception:
-            pass
+        cap = None
+        if cap_col and pd.notna(r.get(cap_col)):
+            try:
+                cap = round(float(str(r[cap_col]).replace(",", "")) / 1e8)
+            except Exception:
+                cap = None
+        if cap is None and close_col and sh_col:
+            try:
+                cap = round(float(str(r[close_col]).replace(",", ""))
+                            * float(str(r[sh_col]).replace(",", "")) / 1e8)
+            except Exception:
+                cap = None
+        if cap:
+            m[str(r[code_col]).zfill(6)] = cap
     return m
 
 
