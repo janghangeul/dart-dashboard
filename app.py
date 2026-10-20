@@ -4187,8 +4187,16 @@ def _db_bond_df(bgn, es):
     con.close()
     df = pd.DataFrame([dict(r) for r in rows])
     if not df.empty:
+        # 기재정정 등 같은 발행(회사·유형·회차)의 중복은 '최종(가장 최근 공시) 1건'만 남긴다.
+        #   회차가 없는(파싱 실패) 행은 합치지 않고 그대로 둔다(서로 다른 발행일 수 있으므로).
+        df = df.sort_values(["공시일", "rcept_no"]).reset_index(drop=True)   # 오름차순 → keep='last' 가 최종본
+        df["_rno"] = df["회차"].astype(str).str.strip()
+        has_round = (df["_rno"] != "") & (df["_rno"].str.lower() != "none")
+        keyed = df[has_round].drop_duplicates(subset=["_corp_code", "유형", "_rno"], keep="last")
+        df = pd.concat([keyed, df[~has_round]], ignore_index=True)
+        df = df.sort_values("공시일", ascending=False).reset_index(drop=True)
         df["원문"] = DART_VIEWER + df["rcept_no"].astype(str)
-        df = df.drop(columns=["rcept_no"])
+        df = df.drop(columns=["rcept_no", "_rno"])
     return df
 
 
