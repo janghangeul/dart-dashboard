@@ -173,25 +173,33 @@ st.markdown(
     /* 라디오 동그라미 숨김 */
     [data-testid="stSidebar"] [role="radiogroup"] label > div:first-child{display:none;}
 
-    /* ---------- 사이드바 메뉴(button 방식) ---------- */
+    /* ---------- 사이드바 메뉴(button 방식 · 라인 아이콘) ---------- */
     [data-testid="stSidebar"] .nav-sec{
-      margin:.65rem 0 .1rem;font-weight:700;font-size:13px;
-      color:var(--brand);letter-spacing:.3px;}
+      margin:1rem 0 .25rem;font-weight:600;font-size:11.5px;
+      color:var(--muted);letter-spacing:.6px;text-transform:uppercase;padding-left:6px;}
+    [data-testid="stSidebar"] [class*="st-key-nav_btn"]{margin:1px 0;}
     /* 메뉴(nav) 버튼만 '메뉴 항목' 스타일. (st-key-nav_btn 클래스로 한정 → '적용' 등 일반 버튼 제외) */
     [data-testid="stSidebar"] [class*="st-key-nav_btn"] button{
-      width:100%;justify-content:flex-start;text-align:left;
-      background:transparent;color:#45505F;border:0;box-shadow:none;
-      font-weight:500;font-size:15.5px;padding:10px 14px;margin:2px 0;border-radius:10px;}
+      width:100%;justify-content:flex-start;text-align:left;gap:12px;
+      background:transparent;color:#404B5A;border:0;box-shadow:none;
+      font-weight:500;font-size:15px;padding:9px 14px;border-radius:12px;
+      transition:background .12s, color .12s;}
     [data-testid="stSidebar"] [class*="st-key-nav_btn"] button:hover{
-      background:var(--sky-hover);color:#45505F;box-shadow:none;}
+      background:#EEF3FB;color:#404B5A;box-shadow:none;}
     [data-testid="stSidebar"] [class*="st-key-nav_btn"] button p{
-      font-size:15.5px !important;font-weight:inherit;color:inherit !important;margin:0;}
-    /* 선택된 메뉴(primary): 연한 하늘색 + 파란 글씨 + 왼쪽 악센트 */
+      font-size:15px !important;font-weight:inherit;color:inherit !important;margin:0;}
+    /* 라인 아이콘: 글씨보다 연하게, 선택 시 파랑 */
+    [data-testid="stSidebar"] [class*="st-key-nav_btn"] button [data-testid="stIconMaterial"]{
+      color:#9AA7B8 !important;font-size:21px;}
+    /* 선택된 메뉴(primary): 둥근 하늘색 알약 + 파란 글씨·아이콘 */
     [data-testid="stSidebar"] [class*="st-key-nav_btn"] button[kind="primary"],
     [data-testid="stSidebar"] [class*="st-key-nav_btn"] button[data-testid="baseButton-primary"],
     [data-testid="stSidebar"] [class*="st-key-nav_btn"] button[data-testid="stBaseButton-primary"]{
-      background:var(--sky);color:var(--brand-ink);font-weight:700;
-      box-shadow:inset 3px 0 0 var(--brand);}
+      background:var(--sky);color:var(--brand-ink);font-weight:700;box-shadow:none;}
+    [data-testid="stSidebar"] [class*="st-key-nav_btn"] button[kind="primary"] [data-testid="stIconMaterial"],
+    [data-testid="stSidebar"] [class*="st-key-nav_btn"] button[data-testid="baseButton-primary"] [data-testid="stIconMaterial"],
+    [data-testid="stSidebar"] [class*="st-key-nav_btn"] button[data-testid="stBaseButton-primary"] [data-testid="stIconMaterial"]{
+      color:var(--brand) !important;}
     [data-testid="stSidebar"] [class*="st-key-nav_btn"] button[kind="primary"]:hover,
     [data-testid="stSidebar"] [class*="st-key-nav_btn"] button[data-testid="baseButton-primary"]:hover,
     [data-testid="stSidebar"] [class*="st-key-nav_btn"] button[data-testid="stBaseButton-primary"]:hover{
@@ -4383,46 +4391,46 @@ def tab_db(corp_df):
 #   Ⅰ.DB → Ⅱ-1 전체 screen → Ⅱ-2 후보 look-up → Ⅲ Analysis → 발행내역 확인 → 기관분석
 # 메인 메뉴 = 섹션 헤더 + 하위 항목(버튼). 각 섹션(Ⅰ~Ⅳ)마다 헤더를 붙여 통일.
 #   ※ 라디오 대신 '버튼'으로 구현 → 탭 안의 버튼(AI 등)을 눌러도 메뉴가 바뀌지 않음.
+# (섹션 헤더, [(라벨, Material 아이콘, 함수), ...]) — 라벨/번호는 유지, 아이콘만 깔끔한 라인 아이콘으로
 NAV_GROUPS = [
-    ("Ⅰ. DB", {"🗂️ DB (업로드 분석)": tab_db}),
-    ("Ⅱ. Look-up", {
-        "　1. 발행내역 - 전체 screen": tab_screener,
-        "　2. 발행 후보 기업 - look-up": tab_demand,
-    }),
-    ("Ⅲ. Analysis", {"🧭 Analysis": tab_analysis}),
-    ("Ⅳ. 밸류에이션", {"💹 밸류에이션": tab_mezz_val}),
-    ("개별 조회", {
-        "📄 발행내역 확인 (기업별)": tab_company,
-        "🏦 기관 분석 (배정기관)": tab_institution,
-    }),
+    ("Ⅰ. DB", [("DB (업로드 분석)", ":material/folder:", tab_db)]),
+    ("Ⅱ. Look-up", [
+        ("1. 발행내역 - 전체 screen", ":material/search:", tab_screener),
+        ("2. 발행 후보 기업 - look-up", ":material/adjust:", tab_demand),
+    ]),
+    ("Ⅲ. Analysis", [("Analysis", ":material/explore:", tab_analysis)]),
+    ("Ⅳ. 밸류에이션", [("밸류에이션", ":material/show_chart:", tab_mezz_val)]),
+    ("개별 조회", [
+        ("발행내역 확인 (기업별)", ":material/apartment:", tab_company),
+        ("기관 분석 (배정기관)", ":material/account_balance:", tab_institution),
+    ]),
 ]
-MAIN_TABS = {}
-for _hdr, _grp in NAV_GROUPS:
-    MAIN_TABS.update(_grp)
-OTHER_TABS = {
-    "🧮 밸류에이션 (공모가 산정근거 · VC)": tab_valuation,
-    "📊 상장사 실적 비교": tab_financials,
-    "🆕 최근 상장/공모 현황": tab_ipo,
-    "🧬 메자닌 벤치마킹": tab_mezzanine,
-    "🔁 기타공시 (자사주 등)": tab_other,
-    "🗄️ 데이터 관리 (DB)": tab_data,
-}
+OTHER_ITEMS = [
+    ("밸류에이션 (공모가 산정근거 · VC)", ":material/calculate:", tab_valuation),
+    ("상장사 실적 비교", ":material/bar_chart:", tab_financials),
+    ("최근 상장/공모 현황", ":material/new_releases:", tab_ipo),
+    ("메자닌 벤치마킹", ":material/compare_arrows:", tab_mezzanine),
+    ("기타공시 (자사주 등)", ":material/repeat:", tab_other),
+    ("데이터 관리 (DB)", ":material/storage:", tab_data),
+]
+MAIN_TABS = {lb: fn for _h, _items in NAV_GROUPS for (lb, _ic, fn) in _items}
+OTHER_TABS = {lb: fn for (lb, _ic, fn) in OTHER_ITEMS}
 TABS = {**MAIN_TABS, **OTHER_TABS}
 
 # 활성 탭(단일 소스).
-_default_tab = "　1. 발행내역 - 전체 screen"
+_default_tab = "1. 발행내역 - 전체 screen"
 if "active_tab" not in st.session_state:
     st.session_state["active_tab"] = _default_tab
 
 
 def _nav_section(container, header, items):
-    """섹션 헤더 + 메뉴 버튼들. 선택된 항목은 primary 로 강조."""
+    """섹션 헤더 + 메뉴 버튼들(라인 아이콘). 선택된 항목은 primary 로 강조."""
     if header:
         container.markdown(
             f"<div class='nav-sec'>{header}</div>", unsafe_allow_html=True)
-    for label in items:
+    for label, icon in items:
         selected = (st.session_state["active_tab"] == label)
-        if container.button(label, key=f"nav_btn::{label}",
+        if container.button(label, icon=icon, key=f"nav_btn::{label}",
                             use_container_width=True,
                             type="primary" if selected else "secondary"):
             st.session_state["active_tab"] = label
@@ -4430,10 +4438,10 @@ def _nav_section(container, header, items):
 
 
 st.sidebar.markdown("### 시스템 구성")
-for _hdr, _grp in NAV_GROUPS:
-    _nav_section(st.sidebar, _hdr, list(_grp.keys()))
+for _hdr, _items in NAV_GROUPS:
+    _nav_section(st.sidebar, _hdr, [(lb, ic) for (lb, ic, _f) in _items])
 with st.sidebar.expander("➕ 기타 메뉴", expanded=(st.session_state["active_tab"] in OTHER_TABS)):
-    _nav_section(st, None, list(OTHER_TABS.keys()))
+    _nav_section(st, None, [(lb, ic) for (lb, ic, _f) in OTHER_ITEMS])
 choice = st.session_state["active_tab"]
 st.sidebar.divider()
 st.sidebar.caption("데이터 출처: 금융감독원 OpenDART")
