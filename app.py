@@ -132,11 +132,11 @@ st.markdown(
 
     /* HTML 표(fs-table) — 나눔고딕·크게·대비 up */
     @import url('https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700;800&display=swap');
-    .fs-table{border-collapse:collapse;width:100%;font-size:16.5px;margin:2px 0 18px;
+    .fs-table{border-collapse:collapse;width:100%;font-size:13px;margin:2px 0 18px;
       font-family:'Nanum Gothic','나눔고딕',Pretendard,-apple-system,sans-serif;}
-    .fs-table thead th{background:#EEF3FA;color:#2A3A4C;font-weight:700;font-size:16.5px;
+    .fs-table thead th{background:#EEF3FA;color:#2A3A4C;font-weight:700;font-size:12.5px;
       border-bottom:2px solid #D7E0EC;position:sticky;top:0;}
-    .fs-table th,.fs-table td{padding:10px 14px;border-bottom:1px solid #EDF1F6;white-space:nowrap;color:var(--ink);}
+    .fs-table th,.fs-table td{padding:6px 9px;border-bottom:1px solid #EDF1F6;white-space:nowrap;color:var(--ink);}
     .fs-table a{color:var(--brand);text-decoration:none;font-weight:600;}
     .fs-table a:hover{text-decoration:underline;}
     .fs-table tbody tr:hover td{background:var(--sky-hover);}
@@ -146,7 +146,7 @@ st.markdown(
     /* Streamlit 기본 표 (대비·크기) */
     [data-testid="stDataFrame"]{border:1px solid var(--line);border-radius:12px;overflow:hidden;
       box-shadow:0 1px 3px rgba(20,36,59,.05);}
-    [data-testid="stDataFrame"] *{font-size:15px !important;color:var(--ink) !important;}
+    [data-testid="stDataFrame"] *{font-size:12.5px !important;color:var(--ink) !important;}
 
     /* ---------- 사이드바 (FineBI/Teams 느낌) ---------- */
     [data-testid="stSidebar"]{background:var(--surface);border-right:1px solid var(--line);min-width:290px;}
@@ -286,13 +286,44 @@ STATUS_MSG = {
 }
 
 
+# ── DART HTTP 세션: 자동 재시도 + 백오프 (해외 서버에서 간헐적 ConnectTimeout 대응) ──
+def _make_dart_session():
+    s = requests.Session()
+    try:
+        from requests.adapters import HTTPAdapter
+        from urllib3.util.retry import Retry
+        retry = Retry(total=4, connect=4, read=4, backoff_factor=0.8,
+                      status_forcelist=[429, 500, 502, 503, 504],
+                      allowed_methods=frozenset(["GET"]))
+        ad = HTTPAdapter(max_retries=retry, pool_connections=12, pool_maxsize=12)
+        s.mount("https://", ad)
+        s.mount("http://", ad)
+    except Exception:
+        pass
+    return s
+
+
+_DART_SESSION = _make_dart_session()
+
+
+def _dart_http_get(url, params, timeout=(10, 60)):
+    """재시도 세션으로 GET. 최종 실패(네트워크 지연 등)는 DartError 로 변환해
+    상위 호출부(기업별 루프 등)가 '그 건만 건너뛰고' 계속하도록 한다."""
+    try:
+        return _DART_SESSION.get(url, params=params, timeout=timeout)
+    except requests.exceptions.RequestException as e:
+        raise DartError(
+            "DART 서버 연결이 지연·실패했습니다. 해외(클라우드) 서버에서 종종 발생하며, "
+            f"잠시 후 다시 시도하면 대개 해결됩니다. ({type(e).__name__})")
+
+
 def dart_get(endpoint: str, params: dict) -> list:
     """DART API를 호출해서 결과(list)를 돌려준다. 데이터가 없으면 빈 리스트."""
     if not api_key:
         raise DartError("먼저 왼쪽 사이드바에 DART 인증키를 입력하세요.")
     query = dict(params)
     query["crtfc_key"] = api_key
-    resp = requests.get(f"{DART_API}/{endpoint}", params=query, timeout=30)
+    resp = _dart_http_get(f"{DART_API}/{endpoint}", query)
     data = resp.json()
     status = data.get("status")
     if status == "000":            # 정상
@@ -308,7 +339,7 @@ def _list_page(base_params: dict, page: int) -> dict:
     q["crtfc_key"] = api_key
     q["page_no"] = str(page)
     q["page_count"] = "100"          # 페이지당 최대 100건
-    r = requests.get(f"{DART_API}/list.json", params=q, timeout=30)
+    r = _dart_http_get(f"{DART_API}/list.json", q)
     data = r.json()
     status = data.get("status")
     if status == "000":
@@ -341,7 +372,7 @@ def load_corp_codes(key: str) -> pd.DataFrame:
     전체 기업의 corp_code <-> 회사명 <-> 종목코드 매핑표를 내려받아 캐시한다.
     DART의 모든 조회는 종목코드가 아니라 corp_code(8자리)로 하기 때문에 이 표가 꼭 필요하다.
     """
-    resp = requests.get(f"{DART_API}/corpCode.xml", params={"crtfc_key": key}, timeout=60)
+    resp = _dart_http_get(f"{DART_API}/corpCode.xml", {"crtfc_key": key}, timeout=(10, 90))
     zf = zipfile.ZipFile(io.BytesIO(resp.content))       # 응답은 zip 파일
     xml_bytes = zf.read(zf.namelist()[0])                # 그 안의 CORPCODE.xml
     root = ET.fromstring(xml_bytes)
@@ -411,7 +442,7 @@ def fetch_full_fs(key: str, corp_code: str, year: int, reprt_code: str, fs_div: 
         "reprt_code": reprt_code,
         "fs_div": fs_div,          # OFS=별도, CFS=연결
     }
-    resp = requests.get(f"{DART_API}/fnlttSinglAcntAll.json", params=q, timeout=30)
+    resp = _dart_http_get(f"{DART_API}/fnlttSinglAcntAll.json", q)
     data = resp.json()
     status = data.get("status")
     if status == "000":
@@ -554,8 +585,8 @@ def show_table(df, stem, key, link_cols=()):
 @st.cache_data(show_spinner=False)
 def fetch_dart_document(key: str, rcept_no: str) -> str:
     """공시서류 원문(document API)을 받아 태그를 제거한 순수 텍스트로 돌려준다."""
-    resp = requests.get(f"{DART_API}/document.xml",
-                        params={"crtfc_key": key, "rcept_no": rcept_no}, timeout=90)
+    resp = _dart_http_get(f"{DART_API}/document.xml",
+                          {"crtfc_key": key, "rcept_no": rcept_no}, timeout=(10, 120))
     content = resp.content
     if not zipfile.is_zipfile(io.BytesIO(content)):
         msg = content.decode("utf-8", "ignore")[:200]
@@ -649,7 +680,7 @@ def extract_offering_with_ai(anthropic_key: str, model: str, sliced_text: str, c
         import anthropic
     except ImportError:
         raise DartError("anthropic 라이브러리가 없습니다. 터미널에서 'python -m pip install anthropic' 실행 후 다시 시도하세요.")
-    client = anthropic.Anthropic(api_key=anthropic_key)
+    client = anthropic.Anthropic(api_key=anthropic_key, max_retries=5, timeout=60)
     prompt = EXTRACTION_PROMPT.format(company=company, text=sliced_text)
     try:
         msg = client.messages.create(
@@ -1647,7 +1678,7 @@ def mezz_ai_opinion(anthropic_key, model, kind, deal, stats_text, n):
         import anthropic
     except ImportError:
         raise DartError("anthropic 라이브러리가 없습니다. 'python -m pip install anthropic' 실행 후 다시 시도하세요.")
-    client = anthropic.Anthropic(api_key=anthropic_key)
+    client = anthropic.Anthropic(api_key=anthropic_key, max_retries=5, timeout=60)
     prompt = f"""당신은 한국 벤처·PE의 메자닌(전환사채/신주인수권부사채) 투자 심사역입니다.
 아래는 우리가 검토 중인 {kind} 딜 조건과, 최근 시장에서 발행된 동일 유형 {n}건의 통계입니다.
 투자자(우리) 관점에서, 제공된 숫자만 근거로 평가하세요. 숫자를 새로 지어내지 마세요.
@@ -1743,7 +1774,7 @@ def mezz_val_ai(anthropic_key, model, ctx):
   "timing": "전환가 대비 현재가(패리티)와 상승 여력을 감안할 때, 지금 전환이 유리한지 / 더 기다리는 게 유리한지에 대한 판단과 근거(한 줄 결론 포함)"
 }}"""
     try:
-        msg = anthropic.Anthropic(api_key=anthropic_key).messages.create(
+        msg = anthropic.Anthropic(api_key=anthropic_key, max_retries=5, timeout=60).messages.create(
             model=model, max_tokens=1300, messages=[{"role": "user", "content": prompt}])
     except Exception as e:
         raise DartError(f"AI 호출 실패: {e}")
@@ -2246,7 +2277,7 @@ def extract_call_put_ai(anthropic_key, model, text, company):
               'JSON만 출력: {"콜옵션":"있음|없음","콜옵션비율":"","풋옵션":"있음|없음","풋옵션비율":""}\n\n'
               f"[원문 발췌]\n{sliced}")
     try:
-        msg = anthropic.Anthropic(api_key=anthropic_key).messages.create(
+        msg = anthropic.Anthropic(api_key=anthropic_key, max_retries=5, timeout=60).messages.create(
             model=model, max_tokens=300, messages=[{"role": "user", "content": prompt}])
     except Exception as e:
         raise DartError(f"AI 호출 실패: {e}")
@@ -2277,7 +2308,9 @@ def _rcept_from_url(u):
 
 
 def tab_screener(corp_df):
-    st.header("🔎 Ⅱ. Look-up - 1. 발행내역 전체 screen")
+    st.markdown("<div style='font-size:15px;font-weight:700;color:var(--muted);"
+                "letter-spacing:.3px;margin-bottom:-6px;'>Ⅱ. Look-up</div>", unsafe_allow_html=True)
+    st.header("🔎 1. 발행내역 전체 screen")
     st.caption("【Flow 1단계】 발행가능성 있는 기업을 **러프하게** 찾는 단계입니다. 기간·시가총액·발행유형(CB/BW/유상증자)·"
                "조건을 골라 전체 발행내역을 한눈에 봅니다. 회사명을 비우면 기간 내 전체가, 입력하면 그 회사만 나옵니다. "
                "여기서 전체 리스트를 추린 뒤 → 'Ⅱ-2. 발행 후보 기업 · look-up'에서 세부 조건으로 좁히세요.")
@@ -2384,10 +2417,23 @@ def tab_screener(corp_df):
             out = out.sort_values(cap_col, ascending=False, na_position="last")
         elif "접수일" in out.columns:
             out = out.sort_values("접수일", ascending=False)
-        price_col = "전환가액(원)" if kc == "CB" else "행사가액(원)"
+        # 표시 컬럼: 희석비율·발행/시총·전환가격(전환가액)은 제외
         display_cols = [c for c in ["종목명", "접수일", "표면이자율(%)", "만기이자율(%)", "만기(년)",
-                                    price_col, "리픽싱하한(%)", "희석비율(%)", "사채총액(억)",
-                                    cap_col, "발행/시총(%)", "원문"] if c in out.columns]
+                                    "리픽싱하한(%)", "사채총액(억)", cap_col, "원문"] if c in out.columns]
+
+        # 연도별 재무 추가 (2023~최신 정기보고서 · 누적) — 기업 수 비례로 느려서 선택
+        add_fin_scr = st.checkbox(
+            "연도별 재무 추가 (2023~최신: 매출·영업이익·현금성자산·부채총계·자본총계 / 느림)",
+            value=False, key="scr_fin",
+            help="각 기업의 2023·2024·2025년 및 당해 상반기(누적) 재무를 붙입니다. "
+                 "결과 기업 수가 많으면 수십 초~수 분 걸릴 수 있습니다.")
+        if add_fin_scr and "_corp_code" in out.columns:
+            pbar2 = st.progress(0.0, "재무 수집 중...")
+            out, _scr_fincols = _attach_year_financials(out, progress=lambda f, t: pbar2.progress(f, t))
+            pbar2.empty()
+            base_no_doc = [c for c in display_cols if c != "원문"]
+            display_cols = base_no_doc + [c for c in _scr_fincols if c in out.columns] \
+                + (["원문"] if "원문" in display_cols else [])
 
         # ---- 콜/풋 옵션 추출 (원문 파싱 · 상위 N건) ----
         with st.expander("🧷 콜/풋 옵션 추출 (원문 파싱 · 느림)"):
@@ -2542,7 +2588,7 @@ JSON만 출력: {{"인수기관":[{{"기관명":"","배정금액":""}}]}}
 [원문 발췌]
 {sliced}"""
     try:
-        msg = anthropic.Anthropic(api_key=anthropic_key).messages.create(
+        msg = anthropic.Anthropic(api_key=anthropic_key, max_retries=5, timeout=60).messages.create(
             model=model, max_tokens=1500, messages=[{"role": "user", "content": prompt}])
     except Exception as e:
         raise DartError(f"AI 호출 실패: {e}")
@@ -2613,7 +2659,7 @@ def analysis_ai(anthropic_key, model, lines, n_cand):
 3) 한 줄 총평
 마지막에 '투자권유가 아니라 영업(딜소싱) 참고용'임을 명시."""
     try:
-        msg = anthropic.Anthropic(api_key=anthropic_key).messages.create(
+        msg = anthropic.Anthropic(api_key=anthropic_key, max_retries=5, timeout=60).messages.create(
             model=model, max_tokens=1600, messages=[{"role": "user", "content": prompt}])
     except Exception as e:
         raise DartError(f"AI 호출 실패: {e}")
@@ -2828,7 +2874,8 @@ def tab_analysis(corp_df):
         if pick_cc and pick_cc != "None":
             with st.spinner(f"{pick_nm} 상세 발행내역을 불러오는 중..."):
                 recs_d = build_company_bonds(api_key, pick_cc, kind_src, "20120101", es_a)
-            render_company_detail(pick_nm, pick_cc, kind_src, recs_d, key_prefix="an_co")
+            render_company_detail(pick_nm, pick_cc, kind_src, recs_d, key_prefix="an_co",
+                                  manual_conclusion=True)
         else:
             st.info("이 기업의 기업코드를 찾지 못해 상세를 불러올 수 없습니다.")
     else:
@@ -2909,13 +2956,15 @@ def tab_analysis(corp_df):
         st.dataframe(sumdf, hide_index=True, use_container_width=True,
                      on_select="rerun", selection_mode="single-row", key="an_sum_tbl")
 
-    # ---- AI 종합 추천 ----
+    # ---- 딜소싱 후보 (AI 의견 = 결론) ----
     st.divider()
     st.subheader("🤖 딜소싱 후보")
+    st.caption("AI가 위 후보들을 종합해 **유력 순위와 이유(= AI 의견·결론)**를 제시합니다. "
+               "개별 기업에 대한 담당자 결론은 위 상세의 '결론' 칸에 직접 작성하세요.")
     if not anthropic_key:
         st.caption("사이드바에 Anthropic API 키를 넣으면, 위 후보들을 종합해 유력 순위와 이유를 정리해줍니다.")
     else:
-        if st.button("AI 종합 추천 생성", type="primary", key="an_ai_btn"):
+        if st.button("AI 의견(결론) 생성", type="primary", key="an_ai_btn"):
             top = rdf.head(20)
             lines = []
             for _, r in top.iterrows():
@@ -2961,7 +3010,7 @@ def company_report_ai(anthropic_key, model, company, kind, issue_lines, fin_line
 예시 톤: "현금성 자산이 부족하고 기존 CB가 전환되어 잔액이 적은 상황. 자금 수요가 지속되고 만기도 임박해 발행 가능성이 높음."
 """
     try:
-        msg = anthropic.Anthropic(api_key=anthropic_key).messages.create(
+        msg = anthropic.Anthropic(api_key=anthropic_key, max_retries=5, timeout=60).messages.create(
             model=model, max_tokens=900, messages=[{"role": "user", "content": prompt}])
     except Exception as e:
         raise DartError(f"AI 호출 실패: {e}")
@@ -2989,9 +3038,10 @@ def latest_periodic_report_url(corp_code):
     return (DART_VIEWER + str(best[1])) if (best and best[1]) else None
 
 
-def render_company_detail(name, code, kind, recs, key_prefix="co"):
+def render_company_detail(name, code, kind, recs, key_prefix="co", manual_conclusion=False):
     """한 기업의 발행 동향 상세(지표·신호·타임라인·회차표·AI·인수기관)를 그린다.
-    tab_company 와 Ⅲ.Analysis 드릴다운에서 공통으로 사용."""
+    tab_company 와 Ⅲ.Analysis 드릴다운에서 공통으로 사용.
+    manual_conclusion=True 면 결론을 담당자가 직접 입력(Analysis), False 면 AI 리포트."""
     st.subheader(f"{name} · {kind} 발행 동향")
     if not recs:
         st.info(f"이 회사의 {kind} 발행 내역을 찾지 못했습니다. (해당 유형 발행이 없을 수 있습니다)")
@@ -3120,9 +3170,16 @@ def render_company_detail(name, code, kind, recs, key_prefix="co"):
     else:
         st.caption("영업이익 자료가 부족해 연속적자 여부를 판정하기 어렵습니다. (미제출·금융업 등)")
 
-    # ---------- 결론 (AI 딜소싱 리포트) ----------
+    # ---------- 결론 ----------
     st.divider()
     st.markdown("#### 결론")
+    if manual_conclusion:
+        # Analysis: 담당자가 직접 결론을 기록 (기업별로 저장)
+        st.caption("담당자가 이 기업에 대한 딜소싱 판단·결론을 직접 작성하세요. (AI 종합 의견은 아래 '딜소싱 후보'에서 확인)")
+        st.text_area("결론 (담당자 작성)", key=f"{key_prefix}_concl_{code}",
+                     height=130, placeholder="예) 만기 임박 + 현금성 부족 → 6개월 내 차환 CB 발행 가능성 높음. 접촉 우선순위 상.",
+                     label_visibility="collapsed")
+        return
     gaps2 = [_months_between(issues[i - 1], issues[i]) for i in range(1, len(issues))]
     avg_gap2 = round(sum(gaps2) / len(gaps2)) if gaps2 else None
     near6 = [r for r in mats if r["만기일"] <= today + dt.timedelta(days=183)]
@@ -3215,7 +3272,7 @@ def demand_ai_opinion(anthropic_key, model, summary_text, n_within, within_label
 3) 접근 시 유의점 (예: 만기 전 조기상환 가능성, 업황 등 — 일반론)
 마지막에 '투자 권유가 아니라 영업 참고용'임을 한 줄로 명시."""
     try:
-        msg = anthropic.Anthropic(api_key=anthropic_key).messages.create(
+        msg = anthropic.Anthropic(api_key=anthropic_key, max_retries=5, timeout=60).messages.create(
             model=model, max_tokens=1800, messages=[{"role": "user", "content": prompt}])
     except Exception as e:
         raise DartError(f"AI 호출 실패: {e}")
@@ -3305,8 +3362,42 @@ def fetch_company_financials(api_key_arg, corp_code, ann_year, cur_year):
     return out
 
 
+@st.cache_data(show_spinner=False, ttl=3600)
+def _fin_cached(corp_code):
+    """기업별 연도 재무(2023·2024·2025·당해 상반기)를 캐시. 재실행·중복기업에 빠름."""
+    try:
+        return fetch_company_financials(api_key, corp_code, 2025, dt.date.today().year)
+    except Exception:
+        return {}
+
+
+def _attach_year_financials(df, progress=None):
+    """표(df)에 '_corp_code' 기준으로 2023~당해상반기 재무 5지표 컬럼을 붙인다.
+       (분기·반기는 누적 실적. AI발표 '발행내역' 시트와 동일 구성)"""
+    today = dt.date.today()
+    periods = ["2023년", "2024년", "2025년", f"{today.year}년 상반기"]
+    metrics = ["매출액", "영업이익", "현금성자산", "부채총계", "자본총계"]
+    codes = [c for c in df["_corp_code"].dropna().astype(str).unique() if c and c != "None"]
+    fin_map = {}
+    for i, cc in enumerate(codes, 1):
+        fin_map[cc] = _fin_cached(cc)
+        if progress:
+            progress(i / max(len(codes), 1), f"재무 수집 {i}/{len(codes)}")
+    out = df.copy()
+    cols = []
+    for p in periods:
+        for m in metrics:
+            col = f"{p} {m}"
+            cols.append(col)
+            out[col] = out["_corp_code"].astype(str).map(
+                lambda cc, _p=p, _m=m: (fin_map.get(cc, {}).get(_p) or {}).get(_m))
+    return out, cols
+
+
 def tab_demand(corp_df):
-    st.header("🎯 Ⅱ. Look-up - 2. 발행후보 기업 - look-up")
+    st.markdown("<div style='font-size:15px;font-weight:700;color:var(--muted);"
+                "letter-spacing:.3px;margin-bottom:-6px;'>Ⅱ. Look-up</div>", unsafe_allow_html=True)
+    st.header("🎯 2. 발행후보 기업 - look-up")
     st.caption("【Flow 2단계】 발행가능성 있는 기업을 **구체적으로** 찾습니다. 과거 CB/BW 발행 이력이 있는 기업 중, "
                "① 시가총액 ② 영업이익 규모 ③ 현금성자산 ④ 이자비용 조건을 직접 걸어 후보 리스트를 추립니다. "
                "추린 기업은 → 'Ⅲ. Analysis'에서 발행여부·조건·시기를 판단하세요.")
@@ -4385,7 +4476,7 @@ def tab_db(corp_df):
                       f"[숫자열 통계]\n{stats}\n\n[질문]\n{q.strip()}\n\n"
                       "한국어로 핵심 먼저, 근거 수치와 함께 간결히 답하세요.")
             with st.spinner("AI가 데이터를 분석 중..."):
-                msg = anthropic.Anthropic(api_key=anthropic_key).messages.create(
+                msg = anthropic.Anthropic(api_key=anthropic_key, max_retries=5, timeout=60).messages.create(
                     model=ai_model, max_tokens=1500, messages=[{"role": "user", "content": prompt}])
             st.session_state["db_ai"] = "".join(getattr(b, "text", "") for b in msg.content)
         except Exception as e:
